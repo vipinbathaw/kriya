@@ -1,0 +1,663 @@
+openapi: 3.0.3
+info:
+  title: Kriya API
+  description: API for Notes, Finance & Nutrition modules
+  version: 1.0.0
+  contact:
+    name: Kriya Team
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development
+  - url: https://api.kriya.app/api
+    description: Production
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: {}
+
+    # ─── Auth ──────────────────────────────────────
+    RegisterInput:
+      type: object
+      required: [email, password, displayName]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        accessToken: { type: string }
+
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    # ─── Notes ────────────────────────────────────
+    Note:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        tags: { type: array, items: { type: string } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateNoteInput:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, maxLength: 10000 }
+
+    UpdateNoteInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, maxLength: 10000 }
+
+    # ─── Finance ──────────────────────────────────
+    FinanceEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        type: { type: string, enum: [credit, debit] }
+        title: { type: string }
+        description: { type: string }
+        amount: { type: integer }
+        currency: { type: string }
+        tags: { type: array, items: { type: string } }
+        entryDate: { type: string, format: date }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateFinanceEntryInput:
+      type: object
+      required: [type, title, amount]
+      properties:
+        type: { type: string, enum: [credit, debit] }
+        title: { type: string, minLength: 1, maxLength: 255 }
+        description: { type: string, maxLength: 10000 }
+        amount: { type: integer, minimum: 1 }
+        currency: { type: string, default: INR }
+        entryDate: { type: string, format: date }
+
+    FinanceSummary:
+      type: object
+      properties:
+        totalCredits: { type: integer }
+        totalDebits: { type: integer }
+        balance: { type: integer }
+        currency: { type: string }
+
+    # ─── Nutrition ────────────────────────────────
+    NutritionEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        rawInput: { type: string }
+        mealType: { type: string, enum: [breakfast, lunch, dinner, snack] }
+        entryDate: { type: string, format: date }
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NutritionItem'
+        createdAt: { type: string, format: date-time }
+
+    NutritionItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        foodName: { type: string }
+        quantity: { type: number }
+        unit: { type: string }
+        calories: { type: number }
+        proteinG: { type: number }
+        carbsG: { type: number }
+        fatG: { type: number }
+        fiberG: { type: number }
+        sugarG: { type: number }
+        sodiumMg: { type: number }
+
+    CreateNutritionEntryInput:
+      type: object
+      required: [rawInput, mealType]
+      properties:
+        rawInput: { type: string, minLength: 1 }
+        mealType: { type: string, enum: [breakfast, lunch, dinner, snack] }
+        entryDate: { type: string, format: date }
+
+    # ─── AI Config ────────────────────────────────
+    AIProvider:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        models: { type: array, items: { type: string } }
+
+    UserAIConfig:
+      type: object
+      properties:
+        module: { type: string, enum: [notes, finance, nutrition] }
+        aiEnabled: { type: boolean }
+        provider: { type: string }
+        model: { type: string }
+
+    UpdateAIConfigInput:
+      type: object
+      properties:
+        aiEnabled: { type: boolean }
+        provider: { type: string }
+        model: { type: string }
+
+    APIKeyInput:
+      type: object
+      required: [provider, apiKey]
+      properties:
+        provider: { type: string }
+        apiKey: { type: string, minLength: 1 }
+
+    APIKeyResponse:
+      type: object
+      properties:
+        provider: { type: string }
+        keyPreview: { type: string }
+        isActive: { type: boolean }
+
+paths:
+  # ─── Auth ──────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterInput'
+      responses:
+        '201':
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409': { description: Email already exists }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401': { description: Invalid credentials }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      security: [{ BearerAuth: [] }]
+      responses:
+        '204': { description: Logged out }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # ─── Notes ──────────────────────────────────────
+  /notes:
+    get:
+      tags: [Notes]
+      summary: List notes
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: tag
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: List of notes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Note' } }
+                  nextCursor: { type: string }
+
+    post:
+      tags: [Notes]
+      summary: Create note
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNoteInput'
+      responses:
+        '201':
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+
+  /notes/{id}:
+    get:
+      tags: [Notes]
+      summary: Get note by ID
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Note details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+        '404': { description: Note not found }
+
+    put:
+      tags: [Notes]
+      summary: Update note
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNoteInput'
+      responses:
+        '200':
+          description: Note updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Note'
+
+    delete:
+      tags: [Notes]
+      summary: Delete note
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Note deleted }
+
+  # ─── Finance ────────────────────────────────────
+  /finance:
+    get:
+      tags: [Finance]
+      summary: List finance entries
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: type
+          in: query
+          schema: { type: string, enum: [credit, debit] }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: List of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/FinanceEntry' } }
+                  nextCursor: { type: string }
+
+    post:
+      tags: [Finance]
+      summary: Create finance entry
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinanceEntryInput'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceEntry'
+
+  /finance/summary:
+    get:
+      tags: [Finance]
+      summary: Get finance summary
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceSummary'
+
+  /finance/{id}:
+    get:
+      tags: [Finance]
+      summary: Get entry by ID
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceEntry'
+
+    put:
+      tags: [Finance]
+      summary: Update entry
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFinanceEntryInput'
+      responses:
+        '200':
+          description: Entry updated
+
+    delete:
+      tags: [Finance]
+      summary: Delete entry
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Entry deleted }
+
+  # ─── Nutrition ──────────────────────────────────
+  /nutrition:
+    get:
+      tags: [Nutrition]
+      summary: List nutrition entries
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: List of entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/NutritionEntry' } }
+                  nextCursor: { type: string }
+
+    post:
+      tags: [Nutrition]
+      summary: Create nutrition entry
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNutritionEntryInput'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionEntry'
+
+  /nutrition/{id}:
+    get:
+      tags: [Nutrition]
+      summary: Get nutrition entry by ID
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Entry details
+
+    delete:
+      tags: [Nutrition]
+      summary: Delete entry
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Entry deleted }
+
+  # ─── AI Config ──────────────────────────────────
+  /settings/ai/providers:
+    get:
+      tags: [AI Settings]
+      summary: List available AI providers
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: List of providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AIProvider'
+
+  /settings/ai/configs:
+    get:
+      tags: [AI Settings]
+      summary: Get AI configs for all modules
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: AI configs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserAIConfig'
+
+    put:
+      tags: [AI Settings]
+      summary: Update AI config for a module
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                module: { type: string, enum: [notes, finance, nutrition] }
+                config:
+                  $ref: '#/components/schemas/UpdateAIConfigInput'
+      responses:
+        '200':
+          description: Config updated
+
+  /settings/ai/keys:
+    get:
+      tags: [AI Settings]
+      summary: List stored API keys
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: List of API keys (previews)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/APIKeyResponse'
+
+    post:
+      tags: [AI Settings]
+      summary: Store API key
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/APIKeyInput'
+      responses:
+        '201':
+          description: Key stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+
+  /settings/ai/keys/{provider}:
+    delete:
+      tags: [AI Settings]
+      summary: Delete API key for a provider
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Key deleted }

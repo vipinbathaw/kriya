@@ -1,0 +1,163 @@
+import { randomUUID, createHash } from 'crypto';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { config } from '../config/index.js';
+import { userRepository } from '../repositories/user.repository.js';
+import { refreshTokenRepository } from '../repositories/refresh-token.repository.js';
+import { emailService } from './email.service.js';
+import { ConflictError, UnauthorizedError, AppError } from '../middleware/errorHandler.js';
+import type { UserRow } from '../repositories/user.repository.js';
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function generateAccessToken(user: Pick<UserRow, 'id' | 'email'>): string {
+  return jwt.sign({ sub: user.id, email: user.email }, config.JWT_SECRET, {
+    expiresIn: config.JWT_ACCESS_EXPIRY as `${number}${'s' | 'm' | 'h' | 'd'}`,
+  });
+}
+
+function generateRefreshToken(): string {
+  return randomUUID() + randomUUID();
+}
+
+function toUserResponse(user: UserRow) {
+  return {
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name,
+    avatarUrl: user.avatar_url,
+    emailVerified: !!user.email_verified,
+    createdAt: user.created_at,
+    updatedAt: user.updated_at,
+  };
+}
+
+function parseDuration(duration: string): number {
+  const match = duration.match(/^(\d+)([smhd])$/);
+  if (!match) return 7 * 24 * 60 * 60 * 1000;
+  const value = parseInt(match[1]);
+  switch (match[2]) {
+    case 's': return value * 1000;
+    case 'm': return value * 60 * 1000;
+    case 'h': return value * 60 * 60 * 1000;
+    case 'd': return value * 24 * 60 * 60 * 1000;
+    default: return 7 * 24 * 60 * 60 * 1000;
+  }
+}
+
+async function generateTokens(user: Pick<UserRow, 'id' | 'email'>) {
+  const accessToken = generateAccessToken(user);
+  const refreshToken = generateRefreshToken();
+  const tokenHash = hashToken(refreshToken);
+  const expiresAt = new Date(Date.now() + parseDuration(config.JWT_REFRESH_EXPIRY));
+
+  await refreshTokenRepository.create({
+    id: randomUUID(),
+    user_id: user.id,
+    token_hash: tokenHash,
+    expires_at: expiresAt,
+  });
+
+  return { accessToken, refreshToken };
+}
+
+export const authService = {
+  async register(email: string, password: string, displayName: string) {
+    const existing = await userRepository.findByEmail(email);
+    if (existing) {
+      throw new ConflictError('Email already registered');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const id = randomUUID();
+    const isDev = config.NODE_ENV === 'development';
+    const verifyToken = isDev ? null : randomUUID();
+
+    await userRepository.create({
+      id,
+      email,
+      password_hash: passwordHash,
+      display_name: displayName,
+      email_verified: isDev,
+      email_verify_token: verifyToken,
+    });
+
+    const user = await userRepository.findById(id)!;
+    const tokens = await generateTokens(user!);
+
+    if (!isDev && verifyToken) {
+      await emailService.sendVerificationEmail(email, verifyToken);
+    }
+
+    return { user: toUserResponse(user!), ...tokens };
+  },
+
+  async login(email: string, password: string) {
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+
+    if (!user.email_verified && config.NODE_ENV !== 'development') {
+      throw new UnauthorizedError('Please verify your email before logging in');
+    }
+
+    const tokens = await generateTokens(user);
+    return { user: toUserResponse(user), ...tokens };
+  },
+
+  async verifyEmail(token: string) {
+    const user = await userRepository.findByVerifyToken(token);
+    if (!user) {
+      throw new AppError(400, 'INVALID_TOKEN', 'Invalid or expired verification token');
+    }
+    await userRepository.verifyEmail(user.id);
+  },
+
+  async refreshToken(refreshToken: string) {
+    const tokenHash = hashToken(refreshToken);
+    const stored = await refreshTokenRepository.findByTokenHash(tokenHash);
+
+    if (!stored) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    if (new Date(stored.expires_at) < new Date()) {
+      await refreshTokenRepository.deleteById(stored.id);
+      throw new UnauthorizedError('Refresh token expired');
+    }
+
+    await refreshTokenRepository.deleteById(stored.id);
+
+    const user = await userRepository.findById(stored.user_id);
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+
+    const tokens = await generateTokens(user);
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken };
+  },
+
+  async logout(refreshToken: string) {
+    const tokenHash = hashToken(refreshToken);
+    const stored = await refreshTokenRepository.findByTokenHash(tokenHash);
+    if (stored) {
+      await refreshTokenRepository.deleteById(stored.id);
+    }
+  },
+
+  async getMe(userId: string) {
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+    return toUserResponse(user);
+  },
+};
