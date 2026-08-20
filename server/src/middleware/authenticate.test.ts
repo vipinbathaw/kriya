@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { authenticate } from './authenticate.js';
 import { UnauthorizedError } from './errorHandler.js';
 import { generateTestToken, generateExpiredToken } from '../test-utils/auth-helper.js';
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 vi.mock('../config/index.js', () => ({
   config: {
@@ -41,30 +41,34 @@ describe('authenticate middleware', () => {
   it('throws UnauthorizedError when Bearer header is missing', () => {
     const req = createMockReq({}) as Request;
 
-    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction))
-      .toThrow(UnauthorizedError);
+    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction)).toThrow(
+      UnauthorizedError,
+    );
     expect(mockNext).not.toHaveBeenCalled();
   });
 
   it('throws UnauthorizedError when header is malformed', () => {
     const req = createMockReq({ authorization: 'Basic token123' }) as Request;
 
-    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction))
-      .toThrow(UnauthorizedError);
+    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction)).toThrow(
+      UnauthorizedError,
+    );
   });
 
   it('throws UnauthorizedError when token is expired', () => {
     const token = generateExpiredToken('user-id');
     const req = createMockReq({ authorization: `Bearer ${token}` }) as Request;
 
-    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction))
-      .toThrow(UnauthorizedError);
+    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction)).toThrow(
+      UnauthorizedError,
+    );
   });
 
   it('throws UnauthorizedError when token is invalid', () => {
     const req = createMockReq({ authorization: 'Bearer totally-invalid-token' }) as Request;
 
-    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction))
-      .toThrow(UnauthorizedError);
+    expect(() => authenticate(req, mockRes as Response, mockNext as NextFunction)).toThrow(
+      UnauthorizedError,
+    );
   });
 });

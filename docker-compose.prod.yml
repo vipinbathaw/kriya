@@ -1,3 +1,5 @@
+name: kriya-prod
+
 services:
   db:
     image: mysql:8.0
@@ -9,10 +11,10 @@ services:
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql_prod_data:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,12 +41,12 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN}
       PORT: 3000
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/health']
       interval: 30s
       timeout: 5s
       start_period: 15s
@@ -59,7 +61,7 @@ services:
     container_name: kriya-client
     restart: unless-stopped
     ports:
-      - "80:80"
+      - '80:80'
     depends_on:
       server:
         condition: service_healthy
@@ -67,7 +69,7 @@ services:
       - kriya-network
 
 volumes:
-  mysql_data:
+  mysql_prod_data:
 
 networks:
   kriya-network:

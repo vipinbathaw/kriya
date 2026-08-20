@@ -1,5 +1,14 @@
-import 'dotenv/config';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { config as dotenvConfig } from 'dotenv';
 import { z } from 'zod';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// npm workspaces run scripts with cwd = <root>/server, so dotenv won't find the
+// repo-root .env on its own. Resolve it explicitly (dev: <root>/server/src/config,
+// built: <root>/server/dist/config).
+dotenvConfig({ path: resolve(__dirname, '../../../.env') });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

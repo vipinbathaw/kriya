@@ -26,6 +26,9 @@ WORKDIR /app
 COPY --from=build /app/node_modules node_modules
 COPY --from=build /app/packages/shared/dist packages/shared/dist
 COPY --from=build /app/packages/shared/package.json packages/shared/
+# @kriya/shared package.json points `main`/`types` at src/ for dev tooling;
+# at runtime only the compiled dist exists, so repoint before starting.
+RUN node -e "const fs=require('fs');const p='packages/shared/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));j.main='./dist/index.js';j.types='./dist/index.d.ts';fs.writeFileSync(p,JSON.stringify(j,null,2));"
 COPY --from=build /app/server/dist dist
 COPY server/migrations migrations
 COPY server/seeds seeds

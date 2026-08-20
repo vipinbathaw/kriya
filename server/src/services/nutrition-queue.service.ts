@@ -21,11 +21,16 @@ async function processNext() {
         const providerId = aiConfig?.provider ?? 'mock';
         const model = aiConfig?.model ?? 'mock';
         const provider = aiAdapter.getProvider(providerId);
-        const apiKey = providerId !== 'mock'
-          ? (await apiKeyRepository.getDecryptedKey(entry.user_id, providerId)) ?? `${providerId}-dev-key`
-          : 'dev-mock-key';
+        const apiKey =
+          providerId !== 'mock'
+            ? ((await apiKeyRepository.getDecryptedKey(entry.user_id, providerId)) ??
+              `${providerId}-dev-key`)
+            : 'dev-mock-key';
 
-        logger.debug({ entryId: entry.id, provider: providerId }, 'Queue processing nutrition entry');
+        logger.debug(
+          { entryId: entry.id, provider: providerId },
+          'Queue processing nutrition entry',
+        );
 
         const nutritionResults = await provider.parseNutrition({
           rawInput: entry.raw_input,
@@ -51,8 +56,15 @@ export const nutritionQueue = {
   start() {
     if (intervalHandle) return;
     logger.info('Nutrition queue worker started');
-    intervalHandle = setInterval(processNext, POLL_INTERVAL);
-    processNext();
+    // A failed poll (e.g. tables not migrated yet, or a transient DB error)
+    // must not crash the whole server; log it and retry on the next tick.
+    const safeProcess = () =>
+      processNext().catch((err) => {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error({ error: message }, 'Nutrition queue poll failed');
+      });
+    intervalHandle = setInterval(safeProcess, POLL_INTERVAL);
+    safeProcess();
   },
 
   stop() {
