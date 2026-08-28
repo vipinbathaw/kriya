@@ -34,6 +34,7 @@ cp .env.prod.example .env.prod
 | `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
 | `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
 | `DB_PORT` | `3306` | MySQL port |
+| `HOST` | `0.0.0.0` | Address the server binds to inside the container |
 | `CLIENT_PORT` | `80` | Host-mapped port for the client container (binds to 127.0.0.1) |
 | `SERVER_PORT` | `3000` | Host-mapped port for the server container (binds to 127.0.0.1) |
 
