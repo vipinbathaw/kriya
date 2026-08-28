@@ -25,16 +25,18 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod exec server \
 ┌─────────┐     ┌──────────┐     ┌─────────┐
 │  Client │────►│  Server  │────►│    DB   │
 │  nginx  │     │  Node.js │     │  MySQL  │
-│  :80    │     │  :3000   │     │  :3306  │
+│  :80*   │     │  :3000*  │     │  :3306  │
 └─────────┘     └──────────┘     └─────────┘
+
+* Configurable via CLIENT_PORT and SERVER_PORT in .env.prod
 ```
 
 ## Services
 
-| Service | Container | Port | Description |
-|---------|-----------|------|-------------|
-| Client | kriya-client | 80 | SPA served by nginx, proxies `/api` to server |
-| Server | kriya-server | 3000 | Express API server |
+| Service | Container | Default Port | Description |
+|---------|-----------|-------------|-------------|
+| Client | kriya-client | 80 | SPA served by nginx, proxies `/api` to server (configurable via `CLIENT_PORT`) |
+| Server | kriya-server | 3000 | Express API server (configurable via `SERVER_PORT`) |
 | Database | kriya-db | 3306 | MySQL 8 database |
 
 ## Documentation

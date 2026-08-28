@@ -24,6 +24,8 @@ cp .env.prod.example .env.prod
 | `JWT_SECRET` | JWT signing key (min 32 chars) | `random-secret-at-least-32-characters-long` |
 | `ENCRYPTION_KEY` | AES-256-GCM key (64 hex chars) | `0123456789abcdef...` |
 | `CORS_ORIGIN` | Frontend URL for CORS | `http://your-domain.com` |
+| `CLIENT_PORT` | Host port for the client (nginx) | `80` |
+| `SERVER_PORT` | Host port for the Express server | `3000` |
 
 ### Optional Variables
 
@@ -32,6 +34,9 @@ cp .env.prod.example .env.prod
 | `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
 | `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
 | `DB_PORT` | `3306` | MySQL port |
+| `PORT` | `3000` | Internal server port (used by Node.js) |
+| `CLIENT_PORT` | `80` | Host-mapped port for the client nginx container |
+| `SERVER_PORT` | `3000` | Host-mapped port for the server container |
 
 ## Step-by-Step Deployment
 
