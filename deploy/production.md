@@ -34,7 +34,6 @@ cp .env.prod.example .env.prod
 | `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
 | `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
 | `DB_PORT` | `3306` | MySQL port |
-| `PORT` | `3000` | Internal server port (used by Node.js) |
 | `CLIENT_PORT` | `80` | Host-mapped port for the client nginx container |
 | `SERVER_PORT` | `3000` | Host-mapped port for the server container |
 
