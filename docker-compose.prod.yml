@@ -41,7 +41,7 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN}
       PORT: ${SERVER_PORT:-3000}
     ports:
-      - '${SERVER_PORT:-3000}:3000'
+      - '127.0.0.1:${SERVER_PORT:-3000}:3000'
     depends_on:
       db:
         condition: service_healthy
@@ -61,7 +61,7 @@ services:
     container_name: kriya-client
     restart: unless-stopped
     ports:
-      - '${CLIENT_PORT:-80}:80'
+      - '127.0.0.1:${CLIENT_PORT:-80}:80'
     depends_on:
       server:
         condition: service_healthy
