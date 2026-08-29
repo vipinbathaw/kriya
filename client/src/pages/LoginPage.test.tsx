@@ -9,6 +9,7 @@ import { useToastStore } from '../stores/toast.store';
 vi.mock('../services/api-client', () => ({
   apiRequest: vi.fn(),
   setAccessToken: vi.fn(),
+  setSessionExpiredHandler: vi.fn(),
   getAccessToken: vi.fn(() => null),
 }));
 

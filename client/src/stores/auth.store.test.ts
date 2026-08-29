@@ -4,6 +4,7 @@ import { useAuthStore } from './auth.store';
 vi.mock('../services/api-client', () => ({
   apiRequest: vi.fn(),
   setAccessToken: vi.fn(),
+  setSessionExpiredHandler: vi.fn(),
 }));
 
 import { apiRequest } from '../services/api-client';

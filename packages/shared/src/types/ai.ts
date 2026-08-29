@@ -15,8 +15,8 @@ export interface UserAIConfig {
 
 export interface UpdateAIConfigInput {
   aiEnabled?: boolean;
-  provider?: string;
-  model?: string;
+  provider?: string | null;
+  model?: string | null;
 }
 
 export interface APIKeyResponse {

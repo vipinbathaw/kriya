@@ -42,7 +42,8 @@
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `NODE_ENV` | No | `development` | Runtime environment |
-| `PORT` | No | `3000` | Server port |
+| `PORT` | No | `3000` | Server port (inside the container it is always `3000`; the host port is `SERVER_PORT`) |
+| `HOST` | No | `0.0.0.0` | Address the server binds to |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Allowed CORS origin |
 | `DB_HOST` | No | `localhost` | MySQL host |
 | `DB_PORT` | No | `3306` | MySQL port |
@@ -53,8 +54,10 @@
 | `JWT_ACCESS_EXPIRY` | No | `15m` | Access token TTL |
 | `JWT_REFRESH_EXPIRY` | No | `7d` | Refresh token TTL |
 | `ENCRYPTION_KEY` | **Yes** | — | AES-256-GCM key (64 hex chars) |
-| `RESEND_API_KEY` | No | — | Resend API key (for email) |
-| `APP_URL` | No | `http://localhost:5173` | Frontend URL (for email links) |
+| `RESEND_API_KEY` | No | — | Resend API key (for email). If omitted in production, new accounts are auto-verified |
+| `APP_URL` | No | `http://localhost:5173` | Public frontend URL (used in verification email links) |
+
+Compose-level variables (`.env.prod`): `SERVER_PORT` (host port for the API, bound to `127.0.0.1`), `CLIENT_PORT` (host port for the web client, bound to `127.0.0.1`), `DB_ROOT_PASSWORD`.
 
 ## API Overview
 
@@ -72,17 +75,17 @@
 | GET | `/api/finance/summary` | JWT | Finance summary |
 | GET/POST/DELETE | `/api/nutrition` | JWT | Nutrition CRUD |
 | GET/PUT | `/api/settings/profile` | JWT | User profile |
-| GET/PUT | `/api/ai/configs` | JWT | AI configuration |
-| GET/POST/DELETE | `/api/ai/keys` | JWT | API key management |
+| GET/PUT | `/api/ai/configs` / `/api/ai/configs/:module` | JWT | AI configuration |
+| GET/POST/DELETE | `/api/ai/keys` / `/api/ai/keys/:provider` | JWT | API key management |
 | GET | `/api/ai/providers` | JWT | Available AI providers |
 
 ## AI Providers
 
 | Provider | Models | Notes |
 |----------|--------|-------|
-| OpenAI | gpt-4o, gpt-4o-mini, gpt-4-turbo, gpt-3.5-turbo | Requires API key |
-| Anthropic | claude-sonnet-4, claude-haiku-3.5 | Requires API key |
-| Mock | — | Built-in, no key needed |
+| OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo` | Requires API key. Default: `gpt-4o-mini` |
+| Anthropic | `claude-sonnet-4-20250514`, `claude-haiku-3-5-20241022` | Requires API key. Default: `claude-haiku-3-5-20241022` |
+| Mock | `mock` | Built-in, no key needed (development only) |
 
 ## Testing
 
@@ -127,8 +130,11 @@ AI parsing is asynchronous. Creating a nutrition entry immediately returns with 
 ### AI Adapter Pattern
 The AI layer (`server/src/ai/adapter.ts`) implements a Strategy pattern with a provider registry. Services never call AI providers directly — they go through the abstract `AIProvider` interface. Adding a new provider requires zero changes to business logic.
 
+### AI Tag Generation (Notes & Finance)
+Notes and finance entries use AI tag generation when the module's AI toggle is enabled **and** an API key is stored for the selected provider. Tags are generated synchronously with the create/update request; if AI is disabled, no key is present, or the provider call fails, tags fall back to rule-based extraction (`generateSimpleTags`) so saves are never blocked.
+
 ### API Key Encryption
-User API keys are encrypted at rest using AES-256-GCM via Node's `crypto` module. Only a 4-character preview is stored for user recognition. Keys are decrypted in-memory per-request and never logged.
+User API keys are encrypted at rest using AES-256-GCM via Node's `crypto` module. Only the first 8 characters of the key are stored as a preview for user recognition. Keys are decrypted in-memory per-request and never logged.
 
 ### RDA-based Nutrition Display
 The client defines complete RDA standards for 29 nutrients. The dashboard shows 7 main nutrients with full-width progress bars. The nutrition list page has collapsible sections for the full 29-nutrient breakdown. "Max" nutrients (sodium, sugar, saturated fat) turn red when RDA % exceeds 100%.

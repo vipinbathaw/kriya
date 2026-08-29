@@ -26,8 +26,8 @@ export const aiConfigService = {
 
   async updateConfig(userId: string, module: string, data: {
     aiEnabled?: boolean;
-    provider?: string;
-    model?: string;
+    provider?: string | null;
+    model?: string | null;
   }): Promise<void> {
     const validModules = ['notes', 'finance', 'nutrition'];
     if (!validModules.includes(module)) {

@@ -12,6 +12,7 @@ describe('AIAdapter', () => {
     const mockProvider = {
       id: 'test-provider',
       name: 'Test Provider',
+      defaultModel: 'test-model',
       generateTags: vi.fn(),
       parseNutrition: vi.fn(),
     };
@@ -26,8 +27,8 @@ describe('AIAdapter', () => {
   });
 
   it('lists registered providers', () => {
-    const p1 = { id: 'p1', name: 'Provider 1', generateTags: vi.fn(), parseNutrition: vi.fn() };
-    const p2 = { id: 'p2', name: 'Provider 2', generateTags: vi.fn(), parseNutrition: vi.fn() };
+    const p1 = { id: 'p1', name: 'Provider 1', defaultModel: 'test-model', generateTags: vi.fn(), parseNutrition: vi.fn() };
+    const p2 = { id: 'p2', name: 'Provider 2', defaultModel: 'test-model', generateTags: vi.fn(), parseNutrition: vi.fn() };
 
     adapter.register(p1);
     adapter.register(p2);
@@ -39,8 +40,8 @@ describe('AIAdapter', () => {
   });
 
   it('allows overriding an existing provider', () => {
-    const original = { id: 'p1', name: 'Original', generateTags: vi.fn(), parseNutrition: vi.fn() };
-    const override = { id: 'p1', name: 'Override', generateTags: vi.fn(), parseNutrition: vi.fn() };
+    const original = { id: 'p1', name: 'Original', defaultModel: 'test-model', generateTags: vi.fn(), parseNutrition: vi.fn() };
+    const override = { id: 'p1', name: 'Override', defaultModel: 'test-model', generateTags: vi.fn(), parseNutrition: vi.fn() };
 
     adapter.register(original);
     adapter.register(override);

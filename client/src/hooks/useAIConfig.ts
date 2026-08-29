@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { aiConfigApi } from '../services/ai-config.api';
-import type { AIProvider, UserAIConfig, APIKeyResponse } from '@kriya/shared';
+import type { AIProvider, UserAIConfig, APIKeyResponse, UpdateAIConfigInput } from '@kriya/shared';
 
 interface AIConfigState {
   configs: UserAIConfig[];
@@ -43,7 +43,7 @@ export function useAIConfig() {
     load();
   }, [load]);
 
-  const updateConfig = useCallback(async (module: string, data: { aiEnabled?: boolean; provider?: string; model?: string }) => {
+  const updateConfig = useCallback(async (module: string, data: UpdateAIConfigInput) => {
     setState((s) => ({ ...s, saving: true, error: null }));
     try {
       await aiConfigApi.updateConfig(module, data);

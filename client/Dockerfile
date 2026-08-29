@@ -3,12 +3,11 @@ FROM node:24-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-COPY packages/shared/package.json packages/shared/
+COPY packages/shared packages/shared
 COPY client/package.json client/
 
 RUN npm ci --include-workspace-root
 
-COPY packages/shared packages/shared
 COPY client client
 
 WORKDIR /app/packages/shared

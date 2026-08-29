@@ -14,6 +14,8 @@ import type { NutritionEntry } from '@kriya/shared';
 
 const NUTRIENT_KEYS = ['calories', 'proteinG', 'carbsG', 'fatG', 'fiberG', 'sugarG', 'sodiumMg', 'saturatedFatG', 'transFatG', 'monounsaturatedFatG', 'polyunsaturatedFatG', 'cholesterolMg', 'potassiumMg', 'calciumMg', 'ironMg', 'vitaminAIug', 'vitaminCMg', 'vitaminDIug', 'vitaminEMg', 'vitaminKIug', 'vitaminB6Mg', 'vitaminB12Iug', 'folateIug', 'magnesiumMg', 'zincMg', 'phosphorusMg', 'seleniumIug', 'copperMg', 'manganeseMg'] as const;
 
+type NutrientKey = (typeof NUTRIENT_KEYS)[number];
+
 function groupByDate(entries: NutritionEntry[]): Map<string, NutritionEntry[]> {
   const map = new Map<string, NutritionEntry[]>();
   for (const entry of entries) {
@@ -43,7 +45,7 @@ export function NutritionListPage() {
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     refetchInterval: (query) => {
       const pages = query.state.data?.pages ?? [];
-      const hasPending = pages.some((p) => p.data.some((e) => e.status !== 'completed'));
+      const hasPending = pages.some((p) => p.data.some((e) => e.status === 'pending'));
       return hasPending ? 3000 : false;
     },
   });
@@ -110,7 +112,7 @@ export function NutritionListPage() {
           {Array.from(grouped.entries()).map(([date, dateEntries]) => {
             const totals: Record<string, number> = {};
             for (const key of NUTRIENT_KEYS) {
-              totals[key] = dateEntries.reduce((s, e) => s + e.items.reduce((s2, i) => s2 + (i as any)[key], 0), 0);
+              totals[key] = dateEntries.reduce((s, e) => s + e.items.reduce((s2, i) => s2 + Number(i[key as NutrientKey] ?? 0), 0), 0);
             }
 
             return (

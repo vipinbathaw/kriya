@@ -21,7 +21,7 @@ export function NutritionDetailPage() {
     enabled: !!id,
     refetchInterval: (query) => {
       const entry = query.state.data;
-      return entry && entry.status !== 'completed' ? 3000 : false;
+      return entry && entry.status === 'pending' ? 3000 : false;
     },
   });
 

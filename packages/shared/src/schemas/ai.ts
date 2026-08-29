@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 export const updateAIConfigSchema = z.object({
   aiEnabled: z.boolean().optional(),
-  provider: z.string().optional(),
-  model: z.string().optional(),
+  provider: z.string().nullable().optional(),
+  model: z.string().nullable().optional(),
 });
 
 export const apiKeySchema = z.object({

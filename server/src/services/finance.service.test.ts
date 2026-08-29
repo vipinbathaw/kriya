@@ -5,6 +5,12 @@ import { NotFoundError } from '../middleware/errorHandler.js';
 import { createMockFinanceEntry, createMockSummary } from '../test-utils/factory.js';
 
 vi.mock('../repositories/finance.repository.js');
+vi.mock('./ai-tag-generator.service.js', async () => {
+  const { generateSimpleTags } = await vi.importActual<typeof import('./tag-generator.service.js')>('./tag-generator.service.js');
+  return {
+    generateTagsForModule: vi.fn(async (_userId: string, _module: string, title: string) => generateSimpleTags(title)),
+  };
+});
 
 beforeEach(() => {
   vi.clearAllMocks();

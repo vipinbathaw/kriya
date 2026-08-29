@@ -34,11 +34,13 @@ Open [http://localhost:5173](http://localhost:5173) — login with `test@kriya.a
 
 ```bash
 cp .env.prod.example .env.prod
-# fill in secrets, then:
+# fill in secrets, and set CORS_ORIGIN / APP_URL to your public origin, then:
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec server \
   npx tsx node_modules/.bin/knex migrate:latest --knexfile dist/config/database.js
 ```
+
+The client (`CLIENT_PORT`, default `8080`) and API (`SERVER_PORT`, default `3000`) are bound to `127.0.0.1` only — put Nginx (or another reverse proxy) in front for public HTTPS access.
 
 See [deploy/production.md](deploy/production.md) for detailed deployment.
 

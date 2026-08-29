@@ -29,6 +29,7 @@ The AI layer is designed as a **pluggable adapter** using the Strategy pattern. 
 export interface AIProvider {
   readonly id: string;
   readonly name: string;
+  readonly defaultModel: string;
 
   /** Generate tags from title and optional description */
   generateTags(params: {
@@ -58,6 +59,7 @@ export interface NutritionResult {
   fiberG: number;
   sugarG: number;
   sodiumMg: number;
+  // ...31 numeric nutrient fields total (see src/ai/types.ts)
 }
 ```
 
@@ -99,7 +101,7 @@ export class AnthropicProvider implements AIProvider {
 ```typescript
 // src/ai/adapter.ts
 
-class AIAdapter {
+export class AIAdapter {
   private providers = new Map<string, AIProvider>();
 
   register(provider: AIProvider): void {
@@ -109,61 +111,98 @@ class AIAdapter {
   getProvider(providerId: string): AIProvider {
     const provider = this.providers.get(providerId);
     if (!provider) {
-      throw new AppError(400, 'UNSUPPORTED_AI_PROVIDER', 
+      throw new AppError(400, 'UNSUPPORTED_AI_PROVIDER',
         `AI provider "${providerId}" not supported`);
     }
     return provider;
   }
 
-  // Provider implementations register themselves
-  static initialize(): AIAdapter {
-    const adapter = new AIAdapter();
-    adapter.register(new OpenAIProvider());
-    adapter.register(new AnthropicProvider());
-    return adapter;
+  listProviders(): Array<{ id: string; name: string }> {
+    return Array.from(this.providers.values()).map((p) => ({ id: p.id, name: p.name }));
   }
 }
 
-export const aiAdapter = AIAdapter.initialize();
+const adapter = new AIAdapter();
+adapter.register(new MockAIProvider());
+adapter.register(new OpenAIProvider());
+adapter.register(new AnthropicProvider());
+
+export const aiAdapter = adapter;
 ```
+
+All providers are registered at module load. Provider responses are validated with Zod, and every provider request runs with a 30s timeout (aborts via `AbortController`).
 
 ## Usage in Services
 
+### Tag generation (Notes & Finance)
+
+Business logic goes through a single helper that reads the user's AI config, resolves the provider, decrypts the stored API key, and falls back to rule-based tags on any failure:
+
 ```typescript
-// src/services/notes.service.ts
+// src/services/ai-tag-generator.service.ts
 
-async createNote(userId: string, data: CreateNoteInput): Promise<Note> {
-  let tags: string[] = [];
+export async function generateTagsForModule(
+  userId: string,
+  module: 'notes' | 'finance',
+  title: string,
+  description?: string,
+): Promise<string[]> {
+  const aiConfig = await aiConfigRepository.findByUserAndModule(userId, module);
 
-  // Check if AI is enabled for notes module
-  const aiConfig = await this.aiConfigRepo.findByUserAndModule(userId, 'notes');
-
-  if (aiConfig?.aiEnabled) {
-    // Get encrypted API key
-    const apiKey = await this.apiKeyRepo.getDecryptedKey(userId, aiConfig.provider);
-    // Call adapter
-    const provider = aiAdapter.getProvider(aiConfig.provider);
-    tags = await provider.generateTags({
-      title: data.title,
-      description: data.description,
-      module: 'notes',
-      apiKey,
-      model: aiConfig.model,
-    });
-  } else {
-    tags = this.generateSimpleTags(data.title);
+  if (!aiConfig?.ai_enabled) {
+    return generateSimpleTags(title);           // rule-based fallback
   }
 
-  return this.notesRepo.create({ ...data, userId, tags });
+  const providerId = aiConfig.provider ?? 'mock';
+  if (providerId === 'mock') {
+    return generateSimpleTags(title);
+  }
+
+  const provider = aiAdapter.getProvider(providerId);
+  const apiKey = await apiKeyRepository.getDecryptedKey(userId, providerId);
+  if (!apiKey) {
+    return generateSimpleTags(title);           // enabled but no key stored
+  }
+
+  return provider.generateTags({
+    title,
+    description,
+    module,
+    apiKey,
+    model: aiConfig.model ?? provider.defaultModel,
+  });
 }
 ```
+
+`notes.service.ts` and `finance.service.ts` call this in `create`/`update`. Because the helper never throws for AI failures, a create/update request is never blocked by a transient AI outage — it silently falls back to rule-based tags and logs a warning.
+
+### Nutrition parsing (async queue)
+
+Nutrition parsing cannot be returned synchronously, so entries are stored with `status = 'pending'` and processed by a background worker:
+
+```typescript
+// src/services/nutrition-queue.service.ts
+
+const aiConfig = await aiConfigRepository.findByUserAndModule(entry.user_id, 'nutrition');
+const providerId = aiConfig?.provider ?? 'mock';
+const provider = aiAdapter.getProvider(providerId);
+const model = aiConfig?.model ?? provider.defaultModel;
+
+// providerId !== 'mock' requires a decrypted key; otherwise the entry
+// is marked failed with AI_KEY_MISSING.
+
+const results = await provider.parseNutrition({ rawInput: entry.raw_input, apiKey, model });
+await nutritionRepository.updateWithResults(entry.id, entry.user_id, validated);
+```
+
+The worker polls every 3 seconds for pending entries and updates status to `completed` or `failed`.
 
 ## Adding a New Provider
 
 1. Create `src/ai/providers/newprovider.provider.ts`
-2. Implement the `AIProvider` interface
-3. Add to `AIAdapter.initialize()` in `adapter.ts`
-4. Add entry to `ai_providers` table (seed)
+2. Implement the `AIProvider` interface (including `defaultModel`)
+3. Register it in `adapter.ts`
+4. Add entry to the `ai_providers` table (seed in `20240101000010_create_ai_providers.ts`)
 5. No changes needed in any service
 
 ## Prompt Engineering

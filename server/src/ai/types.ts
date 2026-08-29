@@ -91,6 +91,7 @@ export interface NutritionParseParams {
 export interface AIProvider {
   readonly id: string;
   readonly name: string;
+  readonly defaultModel: string;
 
   generateTags(params: TagGenerationParams): Promise<string[]>;
   parseNutrition(params: NutritionParseParams): Promise<NutritionResult[]>;

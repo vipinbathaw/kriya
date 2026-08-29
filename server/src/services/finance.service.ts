@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { financeRepository } from '../repositories/finance.repository.js';
-import { generateSimpleTags } from './tag-generator.service.js';
+import { generateTagsForModule } from './ai-tag-generator.service.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
 import type { CreateFinanceEntryInput, FinanceEntry, FinanceSummary } from '@kriya/shared';
 
@@ -23,7 +23,7 @@ function toEntryResponse(row: Awaited<ReturnType<typeof financeRepository.findBy
 
 export const financeService = {
   async create(userId: string, data: CreateFinanceEntryInput): Promise<FinanceEntry> {
-    const tags = generateSimpleTags(data.title);
+    const tags = await generateTagsForModule(userId, 'finance', data.title, data.description);
     const row = await financeRepository.create({
       id: randomUUID(),
       user_id: userId,
@@ -69,7 +69,7 @@ export const financeService = {
     if (!existing) throw new NotFoundError('Finance entry');
 
     const title = data.title ?? existing.title;
-    const tags = generateSimpleTags(title);
+    const tags = await generateTagsForModule(userId, 'finance', title, data.description ?? existing.description ?? undefined);
 
     const updated = await financeRepository.update(id, userId, {
       type: data.type,

@@ -15,41 +15,49 @@
 ## Layered Architecture
 
 ```
-─── HTTP Request ───► Router ──► Validation ──► Service ──► Repository ──► Database
-                               (Zod)             (logic)      (queries)
+─── HTTP Request ───► Router ──► Validation ──► Controller ──► Service ──► Repository ──► Database
+                              (Zod)           (HTTP I/O)     (logic)      (queries)
 ```
 
 ### Layer Responsibilities
 
 #### 1. Routes (`src/routes/`)
 - Define URL paths and HTTP methods
-- Attach middleware (auth, rate-limit, etc.)
-- Route handlers call service methods directly
+- Attach middleware (auth, rate-limit, validation, etc.)
+- Delegate to controllers
 - No business logic
 
 ```typescript
 // Example
-router.get('/notes', authenticate, notesService.list);
-router.post('/notes', authenticate, validate(createNoteSchema), notesService.create);
+router.get('/notes', authenticate, notesController.list);
+router.post('/notes', authenticate, validate(createNoteSchema), notesController.create);
 ```
 
-#### 2. Services (`src/services/`)
+#### 2. Controllers (`src/controllers/`)
+- Parse request input, call services, shape HTTP responses
+- Errors are forwarded to the global error handler
+
+#### 3. Validators (`src/validators/`)
+- Thin re-exports of shared Zod schemas from `@kriya/shared`
+
+#### 4. Services (`src/services/`)
 - All business logic lives here
 - Orchestrate multiple repositories
-- Call AI adapter when applicable
+- Call AI adapter when applicable (see `ai-tag-generator.service.ts`, `nutrition-queue.service.ts`)
 - Throw typed errors (AppError subclasses)
 
-#### 3. Repositories (`src/repositories/`)
+#### 5. Repositories (`src/repositories/`)
 - Pure data access via Knex queries
 - No business logic
 - Return plain objects (not ORM models)
 - One repository per database table
 
-#### 4. Middleware (`src/middleware/`)
+#### 6. Middleware (`src/middleware/`)
 - `authenticate.ts` — JWT verification
 - `validate.ts` — Zod schema validation
 - `errorHandler.ts` — Global error handler
-- `rateLimiter.ts` — Rate limiting
+- `rateLimiter.ts` — In-memory rate limiting keyed by IP + path
+- `requestLogger.ts` — Pino request logging
 
 ## Module Structure
 
@@ -58,7 +66,11 @@ Each module (notes, finance, nutrition) follows the same pattern:
 ```typescript
 server/src/
   routes/
-    notes.routes.ts        # Route definitions (handlers call services directly)
+    notes.routes.ts        # Route definitions
+  controllers/
+    notes.controller.ts    # HTTP request/response handling
+  validators/
+    notes.validator.ts     # Zod schema re-exports
   services/
     notes.service.ts       # Business logic
   repositories/
@@ -109,6 +121,6 @@ Centralized error handler middleware catches all AppErrors and returns consisten
 ## Performance Considerations
 - Connection pooling via Knex (configured pool size)
 - Pagination for all list endpoints (cursor-based)
-- Indexed columns: `user_id`, `created_at`, `tags`
-- Rate limiting per user per endpoint group
+- Indexed columns: composite `(user_id, created_at)` on notes, `(user_id, entry_date)` on finance/nutrition, plus tag columns
+- Rate limiting per IP + endpoint path (in-memory store)
 - Request body size limits (1MB default)

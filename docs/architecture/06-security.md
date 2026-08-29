@@ -41,14 +41,14 @@ Decryption:
 
 ### JWT Tokens
 - Access token: 15 minutes, stored in memory (JS variable)
-- Refresh token: 7 days, stored in httpOnly, Secure, SameSite=Strict cookie
-- Refresh token rotation: old refresh token invalidated on refresh
+- Refresh token: 7 days, stored in httpOnly, Secure, SameSite=Strict cookie (path `/api/auth`)
+- Refresh token rotation: on every refresh the old token row is deleted from `refresh_tokens` and a new one issued
 - JWT secret stored in `JWT_SECRET` env var (min 256-bit)
 
-### Token Blacklisting
-- On logout, refresh token added to blacklist table
-- Blacklist checked on every refresh request
-- Blacklist entries auto-expire after token TTL
+### Token Revocation
+- On logout, the refresh token row is deleted from the `refresh_tokens` table (revocation by deletion, not a blacklist)
+- Refresh validation always checks the hashed token against the `refresh_tokens` table
+- Expired refresh token rows are removed as they are encountered; no sensitive data is retained
 
 ## Request Security
 
@@ -57,8 +57,8 @@ Decryption:
 // Helmet.js middleware provides:
 - Content-Security-Policy
 - X-Content-Type-Options: nosniff
-- X-Frame-Options: DENY
-- Strict-Transport-Security (in production)
+- X-Frame-Options: SAMEORIGIN (Helmet default)
+- Strict-Transport-Security (enabled when served over HTTPS)
 ```
 
 ### Rate Limiting
@@ -76,10 +76,10 @@ Decryption:
 - Request size limits: 1MB default
 
 ## Database Security
-- MySQL runs in Docker without exposing port 3306 externally
+- MySQL runs in Docker; in production the DB port is **not** exposed to the host (`docker-compose.prod.yml` publishes no ports for `db`). In development `docker-compose.yml` exposes `3306:3306` for local tooling
 - Database user has minimum required privileges
-- Connection encryption (TLS) between app and DB
-- No sensitive data in logs
+- The app connects over the private Docker network; TLS between app and DB is not enabled by default (add `ssl` to the Knex connection in `server/src/config/database.ts` if your MySQL requires it)
+- No sensitive data in logs (Pino redaction covers auth headers, cookies, passwords, API keys, and tokens)
 
 ## Production Hardening Checklist
 - [ ] HTTPS enforced (TLS 1.3)

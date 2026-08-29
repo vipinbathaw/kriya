@@ -3,6 +3,7 @@ import type { AIProvider, NutritionResult } from '../types.js';
 export class MockAIProvider implements AIProvider {
   readonly id = 'mock';
   readonly name = 'Mock AI (Development)';
+  readonly defaultModel = 'mock';
 
   async generateTags(): Promise<string[]> {
     return ['tag1', 'tag2', 'tag3'];

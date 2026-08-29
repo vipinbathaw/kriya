@@ -23,10 +23,7 @@ export function AIProviderSelect({
         <label className="block text-sm font-medium mb-1">Provider</label>
         <select
           value={selectedProvider ?? ''}
-          onChange={(e) => {
-            onProviderChange(e.target.value);
-            onModelChange('');
-          }}
+          onChange={(e) => onProviderChange(e.target.value)}
           className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2"
           style={{
             backgroundColor: 'var(--background)',

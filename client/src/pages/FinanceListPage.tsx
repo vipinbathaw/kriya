@@ -1,13 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { financeApi } from '../services/finance.api';
 import { EntryList } from '../components/finance/EntryList';
 import { PageHeader } from '../components/shared/PageHeader';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { useToastStore } from '../stores/toast.store';
 import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import type { FinanceEntry } from '@kriya/shared';
 
 function SummaryRow({ summary, label }: { summary: { totalCredits: number; totalDebits: number; currency: string } | undefined; label: string }) {
   if (!summary) return null;
@@ -59,8 +58,6 @@ export function FinanceListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [allEntries, setAllEntries] = useState<FinanceEntry[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showToday, setShowToday] = useState(false);
 
@@ -68,12 +65,20 @@ export function FinanceListPage() {
   const monthStartDate = monthStart(today);
   const monthEndDate = monthEnd(today);
 
-  const [{ data: listData, isLoading }, { data: monthSummary }, { data: todaySummary }] = useQueries({
+  const {
+    data: listData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['finance'],
+    queryFn: ({ pageParam }) => financeApi.list({ cursor: pageParam, limit: 20 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+  });
+
+  const [monthSummary, todaySummary] = useQueries({
     queries: [
-      {
-        queryKey: ['finance', cursor],
-        queryFn: () => financeApi.list({ cursor, limit: 20 }),
-      },
       {
         queryKey: ['finance-summary', 'month'],
         queryFn: () => financeApi.summary({ from: monthStartDate, to: monthEndDate }),
@@ -95,41 +100,22 @@ export function FinanceListPage() {
     },
   });
 
-  const entries = listData?.data ?? [];
-  const nextCursor = listData?.nextCursor ?? null;
-
-  if (cursor && entries.length > 0 && allEntries.length === 0) {
-    setAllEntries(entries);
-  } else if (!cursor && entries.length > 0) {
-    if (allEntries.length !== entries.length || allEntries.some((n, i) => n.id !== entries[i]?.id)) {
-      setAllEntries(entries);
-    }
-  } else if (cursor && entries.length > 0) {
-    const existingIds = new Set(allEntries.map((n) => n.id));
-    const newEntries = entries.filter((n) => !existingIds.has(n.id));
-    if (newEntries.length > 0) {
-      setAllEntries((prev) => [...prev, ...newEntries]);
-    }
-  }
-
-  const displayEntries = cursor ? allEntries : entries;
+  const entries = listData?.pages.flatMap((p) => p.data) ?? [];
+  const nextCursor = listData?.pages[listData.pages.length - 1]?.nextCursor ?? null;
 
   const handleLoadMore = useCallback(() => {
-    if (nextCursor) setCursor(nextCursor);
-  }, [nextCursor]);
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteId) return;
     await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    setAllEntries((prev) => prev.filter((e) => e.id !== deleteId));
     addToast('Entry deleted', 'success');
   }, [deleteId, deleteMutation, addToast]);
 
   const monthLabel = new Date(today).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   const dateLabel = new Date(today).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
-
-
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
@@ -146,7 +132,7 @@ export function FinanceListPage() {
         }
       />
 
-      <SummaryRow summary={monthSummary} label={`This Month · ${monthLabel}`} />
+      <SummaryRow summary={monthSummary.data} label={`This Month · ${monthLabel}`} />
 
       <button
         onClick={() => setShowToday((v) => !v)}
@@ -157,12 +143,12 @@ export function FinanceListPage() {
         {showToday ? 'Hide today' : 'Show today'}
       </button>
 
-      {showToday && <SummaryRow summary={todaySummary} label={`Today · ${dateLabel}`} />}
+      {showToday && <SummaryRow summary={todaySummary.data} label={`Today · ${dateLabel}`} />}
 
       <EntryList
-        entries={displayEntries}
+        entries={entries}
         isLoading={isLoading}
-        isEmpty={!isLoading && displayEntries.length === 0}
+        isEmpty={!isLoading && entries.length === 0}
         hasMore={!!nextCursor}
         onLoadMore={handleLoadMore}
         onDelete={(id) => setDeleteId(id)}

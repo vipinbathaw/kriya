@@ -1,6 +1,7 @@
 export interface CursorObj {
   id: string;
   createdAt: string;
+  entryDate?: string;
 }
 
 export function encodeCursor(obj: CursorObj): string {
@@ -20,7 +21,7 @@ export interface PaginatedResult<T> {
   nextCursor: string | null;
 }
 
-export function buildPaginatedResponse<T extends { id: string; created_at?: string; createdAt?: string }>(
+export function buildPaginatedResponse<T extends { id: string; created_at?: string; createdAt?: string; entry_date?: string }>(
   rows: T[],
   limit: number,
 ): PaginatedResult<T> {
@@ -33,14 +34,17 @@ export function buildPaginatedResponse<T extends { id: string; created_at?: stri
 
   const last = data[data.length - 1];
   const nextCursor = hasMore
-    ? encodeCursor({ id: last.id, createdAt: last.created_at ?? last.createdAt ?? '' })
+    ? encodeCursor({
+        id: last.id,
+        createdAt: last.created_at ?? last.createdAt ?? '',
+        entryDate: last.entry_date,
+      })
     : null;
 
   return { data, nextCursor };
 }
 
-export function buildCursorWhere(cursor?: string | null): { id?: string; createdAt?: string } | null {
+export function buildCursorWhere(cursor?: string | null): CursorObj | null {
   if (!cursor) return null;
-  const decoded = decodeCursor(cursor);
-  return { id: decoded.id, createdAt: decoded.createdAt };
+  return decodeCursor(cursor);
 }

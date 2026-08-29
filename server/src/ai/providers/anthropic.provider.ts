@@ -6,27 +6,43 @@ const TAG_GENERATION_SYSTEM_PROMPT = `You are a tag generator. Given a title and
 
 const NUTRITION_PARSE_SYSTEM_PROMPT = `You are a nutrition expert. Parse the food description into structured data. Return a JSON array of objects. Every object must have these exact fields (use 0 if unknown, include trace amounts): foodName, quantity, unit, calories, proteinG, carbsG, fatG, fiberG, sugarG, sodiumMg, saturatedFatG, transFatG, monounsaturatedFatG, polyunsaturatedFatG, cholesterolMg, potassiumMg, calciumMg, ironMg, vitaminAIug, vitaminCMg, vitaminDIug, vitaminEMg, vitaminKIug, vitaminB6Mg, vitaminB12Iug, folateIug, magnesiumMg, zincMg, phosphorusMg, seleniumIug, copperMg, manganeseMg. Include every ingredient as a separate object. Return only valid JSON.`;
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 interface AnthropicResponse {
   content: Array<{ type: string; text: string }>;
   error?: { message: string; type: string };
 }
 
 async function callAnthropic(apiKey: string, model: string, systemPrompt: string, userMessage: string): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
-      max_tokens: 1000,
-      temperature: 0.3,
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }],
+        max_tokens: 1000,
+        temperature: 0.3,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new AppError(504, 'AI_TIMEOUT', 'Anthropic request timed out');
+    }
+    throw new AppError(502, 'AI_NETWORK_ERROR', 'Failed to reach Anthropic API');
+  } finally {
+    clearTimeout(timer);
+  }
 
   const data: AnthropicResponse = await res.json();
 
@@ -56,20 +72,30 @@ function extractJson(text: string): string {
   return jsonMatch;
 }
 
+function safeParseJson(text: string): unknown {
+  const cleaned = extractJson(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return undefined;
+  }
+}
+
 export class AnthropicProvider implements AIProvider {
   readonly id = 'anthropic';
   readonly name = 'Anthropic';
+  readonly defaultModel = 'claude-haiku-3-5-20241022';
 
   async generateTags(params: TagGenerationParams): Promise<string[]> {
     const content = await callAnthropic(
       params.apiKey,
-      params.model,
+      params.model || this.defaultModel,
       TAG_GENERATION_SYSTEM_PROMPT,
       `Title: ${params.title}${params.description ? `\nDescription: ${params.description}` : ''}`,
     );
 
-    const parsed = extractJson(content);
-    const result = tagsResponseSchema.safeParse(JSON.parse(parsed));
+    const parsed = safeParseJson(content);
+    const result = tagsResponseSchema.safeParse(parsed);
     if (!result.success) {
       throw new AppError(502, 'AI_INVALID_RESPONSE', 'Anthropic returned malformed tags response');
     }
@@ -80,13 +106,13 @@ export class AnthropicProvider implements AIProvider {
   async parseNutrition(params: NutritionParseParams): Promise<NutritionResult[]> {
     const content = await callAnthropic(
       params.apiKey,
-      params.model,
+      params.model || this.defaultModel,
       NUTRITION_PARSE_SYSTEM_PROMPT,
       `Food eaten: ${params.rawInput}`,
     );
 
-    const parsed = extractJson(content);
-    const result = nutritionResponseSchema.safeParse(JSON.parse(parsed));
+    const parsed = safeParseJson(content);
+    const result = nutritionResponseSchema.safeParse(parsed);
     if (!result.success) {
       throw new AppError(502, 'AI_INVALID_RESPONSE', 'Anthropic returned malformed nutrition response');
     }

@@ -60,7 +60,7 @@ export function EntryForm({ defaultValues, tags, loading, onSave }: EntryFormPro
       title: title.trim(),
       description: description.trim() || undefined,
       amount: inSmallestUnit,
-      currency: 'INR',
+      currency: defaultValues?.currency ?? 'INR',
       entryDate,
     });
   };

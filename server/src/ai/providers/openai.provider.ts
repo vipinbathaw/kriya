@@ -6,6 +6,8 @@ const TAG_GENERATION_PROMPT = `You are a tag generator. Given a title and option
 
 const NUTRITION_PARSE_PROMPT = `You are a nutrition expert. Parse the food description into structured data. Return a JSON array of objects. Every object must have these exact fields (use 0 if unknown, include trace amounts): foodName, quantity, unit, calories, proteinG, carbsG, fatG, fiberG, sugarG, sodiumMg, saturatedFatG, transFatG, monounsaturatedFatG, polyunsaturatedFatG, cholesterolMg, potassiumMg, calciumMg, ironMg, vitaminAIug, vitaminCMg, vitaminDIug, vitaminEMg, vitaminKIug, vitaminB6Mg, vitaminB12Iug, folateIug, magnesiumMg, zincMg, phosphorusMg, seleniumIug, copperMg, manganeseMg. Include every ingredient as a separate object. Return only valid JSON.`;
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -22,19 +24,33 @@ interface OpenAIResponse {
 }
 
 async function callOpenAI(apiKey: string, model: string, messages: OpenAIMessage[]): Promise<string> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.3,
-      max_tokens: 1000,
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.3,
+        max_tokens: 1000,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new AppError(504, 'AI_TIMEOUT', 'OpenAI request timed out');
+    }
+    throw new AppError(502, 'AI_NETWORK_ERROR', 'Failed to reach OpenAI API');
+  } finally {
+    clearTimeout(timer);
+  }
 
   const data: OpenAIResponse = await res.json();
 
@@ -64,12 +80,22 @@ function extractJson(text: string): string {
   return jsonMatch;
 }
 
+function safeParseJson(text: string): unknown {
+  const cleaned = extractJson(text);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return undefined;
+  }
+}
+
 export class OpenAIProvider implements AIProvider {
   readonly id = 'openai';
   readonly name = 'OpenAI';
+  readonly defaultModel = 'gpt-4o-mini';
 
   async generateTags(params: TagGenerationParams): Promise<string[]> {
-    const content = await callOpenAI(params.apiKey, params.model, [
+    const content = await callOpenAI(params.apiKey, params.model || this.defaultModel, [
       { role: 'system', content: TAG_GENERATION_PROMPT },
       {
         role: 'user',
@@ -77,8 +103,8 @@ export class OpenAIProvider implements AIProvider {
       },
     ]);
 
-    const parsed = extractJson(content);
-    const result = tagsResponseSchema.safeParse(JSON.parse(parsed));
+    const parsed = safeParseJson(content);
+    const result = tagsResponseSchema.safeParse(parsed);
     if (!result.success) {
       throw new AppError(502, 'AI_INVALID_RESPONSE', 'OpenAI returned malformed tags response');
     }
@@ -87,13 +113,13 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async parseNutrition(params: NutritionParseParams): Promise<NutritionResult[]> {
-    const content = await callOpenAI(params.apiKey, params.model, [
+    const content = await callOpenAI(params.apiKey, params.model || this.defaultModel, [
       { role: 'system', content: NUTRITION_PARSE_PROMPT },
       { role: 'user', content: `Food eaten: ${params.rawInput}` },
     ]);
 
-    const parsed = extractJson(content);
-    const result = nutritionResponseSchema.safeParse(JSON.parse(parsed));
+    const parsed = safeParseJson(content);
+    const result = nutritionResponseSchema.safeParse(parsed);
     if (!result.success) {
       throw new AppError(502, 'AI_INVALID_RESPONSE', 'OpenAI returned malformed nutrition response');
     }

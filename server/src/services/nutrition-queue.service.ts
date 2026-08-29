@@ -3,6 +3,7 @@ import { aiConfigRepository } from '../repositories/ai-config.repository.js';
 import { apiKeyRepository } from '../repositories/api-key.repository.js';
 import { aiAdapter } from '../ai/adapter.js';
 import { nutritionItemSchema } from '@kriya/shared';
+import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
 const POLL_INTERVAL = 3000;
@@ -19,13 +20,17 @@ async function processNext() {
       try {
         const aiConfig = await aiConfigRepository.findByUserAndModule(entry.user_id, 'nutrition');
         const providerId = aiConfig?.provider ?? 'mock';
-        const model = aiConfig?.model ?? 'mock';
         const provider = aiAdapter.getProvider(providerId);
-        const apiKey =
-          providerId !== 'mock'
-            ? ((await apiKeyRepository.getDecryptedKey(entry.user_id, providerId)) ??
-              `${providerId}-dev-key`)
-            : 'dev-mock-key';
+        const model = aiConfig?.model ?? provider.defaultModel;
+
+        let apiKey = 'dev-mock-key';
+        if (providerId !== 'mock') {
+          const storedKey = await apiKeyRepository.getDecryptedKey(entry.user_id, providerId);
+          if (!storedKey) {
+            throw new AppError(400, 'AI_KEY_MISSING', `No API key stored for provider "${providerId}"`);
+          }
+          apiKey = storedKey;
+        }
 
         logger.debug(
           { entryId: entry.id, provider: providerId },

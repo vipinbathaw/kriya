@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { User } from '@kriya/shared';
-import { setAccessToken, apiRequest } from '../services/api-client';
+import { setAccessToken, setSessionExpiredHandler, apiRequest } from '../services/api-client';
 
 export interface AuthState {
   user: User | null;
@@ -62,3 +62,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user, isAuthenticated: !!user });
   },
 }));
+
+setSessionExpiredHandler(() => {
+  setAccessToken(null);
+  useAuthStore.setState({ user: null, isAuthenticated: false, isLoading: false });
+});

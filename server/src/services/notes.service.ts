@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { notesRepository } from '../repositories/notes.repository.js';
-import { generateSimpleTags } from './tag-generator.service.js';
+import { generateTagsForModule } from './ai-tag-generator.service.js';
 import { NotFoundError } from '../middleware/errorHandler.js';
 import type { CreateNoteInput, UpdateNoteInput, Note } from '@kriya/shared';
 
@@ -19,7 +19,7 @@ function toNoteResponse(row: Awaited<ReturnType<typeof notesRepository.findById>
 
 export const notesService = {
   async create(userId: string, data: CreateNoteInput): Promise<Note> {
-    const tags = generateSimpleTags(data.title);
+    const tags = await generateTagsForModule(userId, 'notes', data.title, data.description);
     const row = await notesRepository.create({
       id: randomUUID(),
       user_id: userId,
@@ -49,7 +49,7 @@ export const notesService = {
     if (!existing) throw new NotFoundError('Note');
 
     const title = data.title ?? existing.title;
-    const tags = generateSimpleTags(title);
+    const tags = await generateTagsForModule(userId, 'notes', title, data.description ?? existing.description ?? undefined);
 
     const updated = await notesRepository.update(id, userId, {
       title: data.title,

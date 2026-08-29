@@ -5,6 +5,7 @@ import { config } from '../config/index.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { refreshTokenRepository } from '../repositories/refresh-token.repository.js';
 import { emailService } from './email.service.js';
+import { logger } from '../utils/logger.js';
 import { ConflictError, UnauthorizedError, AppError } from '../middleware/errorHandler.js';
 import type { UserRow } from '../repositories/user.repository.js';
 
@@ -72,22 +73,30 @@ export const authService = {
 
     const passwordHash = await bcrypt.hash(password, 12);
     const id = randomUUID();
-    const isDev = config.NODE_ENV === 'development';
-    const verifyToken = isDev ? null : randomUUID();
+
+    // When no email provider is configured (dev, or a self-hosted install without
+    // a RESEND_API_KEY) auto-verify so accounts are never permanently locked out.
+    const emailProviderConfigured = !!config.RESEND_API_KEY;
+    const autoVerify = config.NODE_ENV === 'development' || !emailProviderConfigured;
+    const verifyToken = autoVerify ? null : randomUUID();
+
+    if (!emailProviderConfigured && config.NODE_ENV === 'production') {
+      logger.warn('RESEND_API_KEY not configured — new accounts are auto-verified and no verification email is sent');
+    }
 
     await userRepository.create({
       id,
       email,
       password_hash: passwordHash,
       display_name: displayName,
-      email_verified: isDev,
+      email_verified: autoVerify,
       email_verify_token: verifyToken,
     });
 
     const user = await userRepository.findById(id)!;
     const tokens = await generateTokens(user!);
 
-    if (!isDev && verifyToken) {
+    if (!autoVerify && verifyToken) {
       await emailService.sendVerificationEmail(email, verifyToken);
     }
 

@@ -94,22 +94,22 @@ Kriya is a personal life-management platform with three core modules — Notes, 
 kriya/
 ├── docs/                    # All documentation
 │   ├── architecture/        # System design docs
-│   ├── tasks/               # Task breakdowns (JIRAs)
 │   ├── api/                 # API specs (OpenAPI)
-│   └── database/            # DB schema descriptions
+├── packages/shared/         # Shared Zod schemas + TypeScript types
 ├── server/                  # Backend (Express)
 │   └── src/
 │       ├── config/          # App configuration
 │       ├── middleware/      # Auth, validation, error handling
 │       ├── routes/          # Route definitions
+│       ├── controllers/     # HTTP request/response handling
+│       ├── validators/      # Zod schema re-exports
 │       ├── services/        # Business logic
 │       ├── repositories/    # Data access layer
 │       ├── ai/              # AI adapter & providers
 │       │   ├── providers/   # Provider implementations
-│       │   ├── adapter.ts   # Adapter interface
+│       │   ├── adapter.ts   # Provider registry
 │       │   └── types.ts     # AI-related types
-│       ├── utils/           # Helpers
-│       └── types/           # Shared types
+│       └── utils/           # Helpers
 ├── client/                  # Frontend (React + Vite)
 │   └── src/
 │       ├── components/      # UI components by module
@@ -117,8 +117,9 @@ kriya/
 │       ├── hooks/           # Custom hooks
 │       ├── services/        # API client
 │       ├── stores/          # Zustand stores
-│       ├── types/           # TypeScript types
-│       └── utils/           # Helpers
+│       └── constants/       # RDA standards etc.
+├── deploy/                  # Production deployment guides
+├── docker/                  # MySQL init scripts
 ├── k8s/                     # Kubernetes manifests (future)
 ├── docker-compose.yml       # Dev environment
 └── README.md

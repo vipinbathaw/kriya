@@ -1,25 +1,29 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notesApi } from '../services/notes.api';
 import { NoteList } from '../components/notes/NoteList';
 import { PageHeader } from '../components/shared/PageHeader';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { useToastStore } from '../stores/toast.store';
 import { Plus } from 'lucide-react';
-import type { Note } from '@kriya/shared';
 
 export function NotesListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['notes', cursor],
-    queryFn: () => notesApi.list({ cursor, limit: 20 }),
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['notes'],
+    queryFn: ({ pageParam }) => notesApi.list({ cursor: pageParam, limit: 20 }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
 
   const deleteMutation = useMutation({
@@ -29,34 +33,17 @@ export function NotesListPage() {
     },
   });
 
-  const notes = data?.data ?? [];
-  const nextCursor = data?.nextCursor ?? null;
-
-  if (cursor && notes.length > 0 && allNotes.length === 0) {
-    setAllNotes(notes);
-  } else if (!cursor && notes.length > 0) {
-    if (allNotes.length !== notes.length || allNotes.some((n, i) => n.id !== notes[i]?.id)) {
-      setAllNotes(notes);
-    }
-  } else if (cursor && notes.length > 0) {
-    const existingIds = new Set(allNotes.map((n) => n.id));
-    const newNotes = notes.filter((n) => !existingIds.has(n.id));
-    if (newNotes.length > 0) {
-      setAllNotes((prev) => [...prev, ...newNotes]);
-    }
-  }
-
-  const displayNotes = cursor ? allNotes : notes;
+  const notes = data?.pages.flatMap((p) => p.data) ?? [];
+  const nextCursor = data?.pages[data.pages.length - 1]?.nextCursor ?? null;
 
   const handleLoadMore = useCallback(() => {
-    if (nextCursor) setCursor(nextCursor);
-  }, [nextCursor]);
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteId) return;
     await deleteMutation.mutateAsync(deleteId);
     setDeleteId(null);
-    setAllNotes((prev) => prev.filter((n) => n.id !== deleteId));
     addToast('Note deleted', 'success');
   }, [deleteId, deleteMutation, addToast]);
 
@@ -76,9 +63,9 @@ export function NotesListPage() {
       />
 
       <NoteList
-        notes={displayNotes}
+        notes={notes}
         isLoading={isLoading}
-        isEmpty={!isLoading && displayNotes.length === 0}
+        isEmpty={!isLoading && notes.length === 0}
         hasMore={!!nextCursor}
         onLoadMore={handleLoadMore}
         onDelete={(id) => setDeleteId(id)}

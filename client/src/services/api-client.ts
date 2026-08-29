@@ -1,6 +1,7 @@
 const BASE_URL = '/api';
 
 let accessToken: string | null = null;
+let sessionExpiredHandler: (() => void) | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
@@ -8,6 +9,10 @@ export function setAccessToken(token: string | null) {
 
 export function getAccessToken() {
   return accessToken;
+}
+
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  sessionExpiredHandler = handler;
 }
 
 interface ApiError {
@@ -34,14 +39,24 @@ async function refreshAccessToken(): Promise<string | null> {
       method: 'POST',
       credentials: 'include',
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      notifySessionExpired();
+      return null;
+    }
     const data = await res.json();
     setAccessToken(data.accessToken);
     return data.accessToken;
   } catch {
+    notifySessionExpired();
     return null;
   }
 }
+
+function notifySessionExpired(): void {
+  sessionExpiredHandler?.();
+}
+
+const AUTH_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/verify-email']);
 
 export async function apiRequest<T>(
   path: string,
@@ -65,7 +80,7 @@ export async function apiRequest<T>(
     credentials: 'include',
   });
 
-  if (res.status === 401 && accessToken) {
+  if (res.status === 401 && accessToken && !AUTH_PATHS.has(path)) {
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;

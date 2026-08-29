@@ -68,7 +68,7 @@ export const notesRepository = {
 
     const cursor = params.cursor ? buildCursorWhere(params.cursor) : null;
     if (cursor) {
-      query = query.whereRaw('(created_at < ? OR (created_at = ? AND id > ?))', [
+      query = query.whereRaw('(created_at < ? OR (created_at = ? AND id < ?))', [
         cursor.createdAt as string,
         cursor.createdAt as string,
         cursor.id as string,

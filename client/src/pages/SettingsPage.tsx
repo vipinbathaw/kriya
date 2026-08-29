@@ -38,8 +38,11 @@ export function SettingsPage() {
     settingsApi.getProfile().then((p) => {
       setProfile(p);
       setDisplayName(p.displayName);
+      if (p.theme) setTheme(p.theme);
+    }).catch(() => {
+      addToast('Failed to load profile', 'error');
     });
-  }, []);
+  }, [addToast, setTheme]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -47,8 +50,19 @@ export function SettingsPage() {
       const updated = await settingsApi.updateProfile({ displayName });
       setProfile(updated);
       addToast('Profile updated', 'success');
+    } catch {
+      addToast('Failed to save profile', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleThemeChange = async (theme: 'light' | 'dark' | 'system') => {
+    setTheme(theme);
+    try {
+      await settingsApi.updateProfile({ theme });
+    } catch {
+      addToast('Theme preference not synced', 'error');
     }
   };
 
@@ -68,11 +82,10 @@ export function SettingsPage() {
   };
 
   const handleProviderChange = async (module: string, provider: string) => {
-    const cfg = configs.find((c) => c.module === module);
     await updateConfig(module, {
       aiEnabled: true,
       provider,
-      model: cfg?.model ?? undefined,
+      model: null,
     });
   };
 
@@ -81,7 +94,7 @@ export function SettingsPage() {
     await updateConfig(module, {
       aiEnabled: cfg?.aiEnabled ?? false,
       provider: cfg?.provider ?? undefined,
-      model,
+      model: model || null,
     });
   };
 
@@ -178,7 +191,7 @@ export function SettingsPage() {
                 return (
                   <button
                     key={opt.value}
-                    onClick={() => setTheme(opt.value)}
+                    onClick={() => handleThemeChange(opt.value)}
                     className="flex-1 flex flex-col items-center gap-2 py-3 px-4 rounded-lg border text-sm transition-colors"
                     style={{
                       backgroundColor: isActive ? 'var(--primary)' : 'var(--background)',

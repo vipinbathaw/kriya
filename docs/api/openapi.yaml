@@ -44,7 +44,7 @@ components:
       required: [email, password]
       properties:
         email: { type: string, format: email }
-        password: { type: string }
+        password: { type: string, minLength: 8 }
 
     AuthResponse:
       type: object
@@ -59,7 +59,25 @@ components:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
         displayName: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        emailVerified: { type: boolean }
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Profile:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        displayName: { type: string }
+        avatarUrl: { type: string, nullable: true }
+        theme: { type: string, enum: [light, dark, system] }
+
+    UpdateProfileInput:
+      type: object
+      properties:
+        displayName: { type: string, minLength: 1, maxLength: 100 }
+        theme: { type: string, enum: [light, dark, system] }
 
     # ─── Notes ────────────────────────────────────
     Note:
@@ -130,11 +148,15 @@ components:
         rawInput: { type: string }
         mealType: { type: string, enum: [breakfast, lunch, dinner, snack] }
         entryDate: { type: string, format: date }
+        status: { type: string, enum: [pending, completed, failed] }
+        aiGenerated: { type: boolean }
+        errorMessage: { type: string, nullable: true }
         items:
           type: array
           items:
             $ref: '#/components/schemas/NutritionItem'
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     NutritionItem:
       type: object
@@ -150,6 +172,28 @@ components:
         fiberG: { type: number }
         sugarG: { type: number }
         sodiumMg: { type: number }
+        saturatedFatG: { type: number }
+        transFatG: { type: number }
+        monounsaturatedFatG: { type: number }
+        polyunsaturatedFatG: { type: number }
+        cholesterolMg: { type: number }
+        potassiumMg: { type: number }
+        calciumMg: { type: number }
+        ironMg: { type: number }
+        vitaminAIug: { type: number }
+        vitaminCMg: { type: number }
+        vitaminDIug: { type: number }
+        vitaminEMg: { type: number }
+        vitaminKIug: { type: number }
+        vitaminB6Mg: { type: number }
+        vitaminB12Iug: { type: number }
+        folateIug: { type: number }
+        magnesiumMg: { type: number }
+        zincMg: { type: number }
+        phosphorusMg: { type: number }
+        seleniumIug: { type: number }
+        copperMg: { type: number }
+        manganeseMg: { type: number }
 
     CreateNutritionEntryInput:
       type: object
@@ -172,22 +216,22 @@ components:
       properties:
         module: { type: string, enum: [notes, finance, nutrition] }
         aiEnabled: { type: boolean }
-        provider: { type: string }
-        model: { type: string }
+        provider: { type: string, nullable: true }
+        model: { type: string, nullable: true }
 
     UpdateAIConfigInput:
       type: object
       properties:
         aiEnabled: { type: boolean }
-        provider: { type: string }
-        model: { type: string }
+        provider: { type: string, nullable: true }
+        model: { type: string, nullable: true }
 
     APIKeyInput:
       type: object
       required: [provider, apiKey]
       properties:
         provider: { type: string }
-        apiKey: { type: string, minLength: 1 }
+        apiKey: { type: string, minLength: 8 }
 
     APIKeyResponse:
       type: object
@@ -197,6 +241,22 @@ components:
         isActive: { type: boolean }
 
 paths:
+  # ─── Health ─────────────────────────────────────
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: Service healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  timestamp: { type: string, format: date-time }
+
   # ─── Auth ──────────────────────────────────────
   /auth/register:
     post:
@@ -254,9 +314,29 @@ paths:
     post:
       tags: [Auth]
       summary: Logout
-      security: [{ BearerAuth: [] }]
       responses:
         '204': { description: Logged out }
+        '401': { description: No refresh token cookie }
+
+  /auth/verify-email:
+    get:
+      tags: [Auth]
+      summary: Verify email address
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '400': { description: Invalid or missing token }
 
   /auth/me:
     get:
@@ -270,6 +350,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+
+  # ─── Settings ───────────────────────────────────
+  /settings/profile:
+    get:
+      tags: [Settings]
+      summary: Get user profile and settings
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200':
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+
+    put:
+      tags: [Settings]
+      summary: Update profile or settings
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileInput'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
 
   # ─── Notes ──────────────────────────────────────
   /notes:
@@ -357,6 +469,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Note'
+        '404': { description: Note not found }
 
     delete:
       tags: [Notes]
@@ -461,6 +574,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/FinanceEntry'
+        '404': { description: Entry not found }
 
     put:
       tags: [Finance]
@@ -480,6 +594,11 @@ paths:
       responses:
         '200':
           description: Entry updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceEntry'
+        '404': { description: Entry not found }
 
     delete:
       tags: [Finance]
@@ -512,6 +631,9 @@ paths:
         - name: to
           in: query
           schema: { type: string, format: date }
+        - name: mealType
+          in: query
+          schema: { type: string, enum: [breakfast, lunch, dinner, snack] }
       responses:
         '200':
           description: List of entries
@@ -554,6 +676,11 @@ paths:
       responses:
         '200':
           description: Entry details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NutritionEntry'
+        '404': { description: Entry not found }
 
     delete:
       tags: [Nutrition]
@@ -568,7 +695,7 @@ paths:
         '204': { description: Entry deleted }
 
   # ─── AI Config ──────────────────────────────────
-  /settings/ai/providers:
+  /ai/providers:
     get:
       tags: [AI Settings]
       summary: List available AI providers
@@ -583,7 +710,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/AIProvider'
 
-  /settings/ai/configs:
+  /ai/configs:
     get:
       tags: [AI Settings]
       summary: Get AI configs for all modules
@@ -598,25 +725,34 @@ paths:
                 items:
                   $ref: '#/components/schemas/UserAIConfig'
 
+  /ai/configs/{module}:
     put:
       tags: [AI Settings]
       summary: Update AI config for a module
       security: [{ BearerAuth: [] }]
+      parameters:
+        - name: module
+          in: path
+          required: true
+          schema: { type: string, enum: [notes, finance, nutrition] }
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                module: { type: string, enum: [notes, finance, nutrition] }
-                config:
-                  $ref: '#/components/schemas/UpdateAIConfigInput'
+              $ref: '#/components/schemas/UpdateAIConfigInput'
       responses:
         '200':
           description: Config updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+        '400': { description: Invalid module or provider }
 
-  /settings/ai/keys:
+  /ai/keys:
     get:
       tags: [AI Settings]
       summary: List stored API keys
@@ -642,14 +778,14 @@ paths:
             schema:
               $ref: '#/components/schemas/APIKeyInput'
       responses:
-        '201':
+        '200':
           description: Key stored
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIKeyResponse'
 
-  /settings/ai/keys/{provider}:
+  /ai/keys/{provider}:
     delete:
       tags: [AI Settings]
       summary: Delete API key for a provider
@@ -660,4 +796,11 @@ paths:
           required: true
           schema: { type: string }
       responses:
-        '204': { description: Key deleted }
+        '200':
+          description: Key deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }

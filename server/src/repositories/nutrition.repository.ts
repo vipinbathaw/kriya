@@ -207,11 +207,17 @@ export const nutritionRepository = {
 
     const cursor = params.cursor ? buildCursorWhere(params.cursor) : null;
     if (cursor) {
-      query = query.whereRaw('(entry_date < ? OR (entry_date = ? AND id > ?))', [
-        cursor.createdAt as string,
-        cursor.createdAt as string,
-        cursor.id as string,
-      ]);
+      query = query.whereRaw(
+        '(entry_date < ? OR (entry_date = ? AND created_at < ?) OR (entry_date = ? AND created_at = ? AND id < ?))',
+        [
+          cursor.entryDate ?? cursor.createdAt,
+          cursor.entryDate ?? cursor.createdAt,
+          cursor.createdAt,
+          cursor.entryDate ?? cursor.createdAt,
+          cursor.createdAt,
+          cursor.id,
+        ],
+      );
     }
 
     if (params.from) query = query.where('entry_date', '>=', params.from);
@@ -221,6 +227,7 @@ export const nutritionRepository = {
     const rows = await query
       .orderBy('entry_date', 'desc')
       .orderBy('created_at', 'desc')
+      .orderBy('id', 'desc')
       .limit(limit + 1) as NutritionEntryRow[];
 
     const result = buildPaginatedResponse(rows, limit);

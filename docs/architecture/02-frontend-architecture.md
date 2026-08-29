@@ -8,7 +8,7 @@
 - **Client State**: Zustand
 - **Styling**: Tailwind CSS v4
 - **Forms**: React Hook Form + Zod
-- **HTTP Client**: TanStack Query's built-in fetch or ky
+- **HTTP Client**: Custom `fetch` wrapper (`services/api-client.ts`) with automatic access-token refresh on 401
 - **Testing**: Vitest + React Testing Library
 - **Mobile (Future)**: React Native (Expo)
 
@@ -23,17 +23,22 @@ pages/              # Route-level components (one per route)
   └── SettingsPage.tsx
 
 components/
-  ├── layout/       # App shell, sidebar, navbar, theme toggle
+  ├── layout/       # App shell, sidebar, navbar
   │   ├── AppLayout.tsx
   │   ├── Sidebar.tsx
   │   ├── Navbar.tsx
-  │   └── ThemeToggle.tsx
+  │   ├── MobileNav.tsx
+  │   ├── ProtectedRoute.tsx
+  │   └── AuthLayout.tsx
   ├── shared/       # Cross-module components
   │   ├── TagInput.tsx
   │   ├── TagBadge.tsx
   │   ├── ConfirmDialog.tsx
   │   ├── LoadingSpinner.tsx
-  │   └── EmptyState.tsx
+  │   ├── EmptyState.tsx
+  │   ├── DatePicker.tsx
+  │   ├── PageHeader.tsx
+  │   └── ToastContainer.tsx
   ├── notes/        # Notes module components
   │   ├── NoteCard.tsx
   │   ├── NoteForm.tsx
@@ -43,11 +48,15 @@ components/
   │   ├── EntryForm.tsx
   │   ├── EntryList.tsx
   │   └── BalanceSummary.tsx
-  └── nutrition/    # Nutrition module components
-      ├── FoodEntryCard.tsx
-      ├── FoodEntryForm.tsx
-      ├── NutritionSummary.tsx
-      └── NutritionBreakdown.tsx
+  ├── nutrition/    # Nutrition module components
+  │   ├── FoodEntryCard.tsx
+  │   ├── FoodEntryForm.tsx
+  │   ├── NutritionSummary.tsx
+  │   └── NutritionDetailCard.tsx
+  └── settings/     # AI settings components
+      ├── AIProviderSelect.tsx
+      ├── APIKeyInput.tsx
+      └── ModuleAIToggle.tsx
 ```
 
 ## Routing
@@ -87,7 +96,8 @@ components/
 - Tailwind `dark` class on `<html>`
 - Zustand store persists theme preference to localStorage
 - System preference detected via `prefers-color-scheme` media query
-- Manual toggle exposed in navbar
+- Theme choice is synced to the server (`PUT /api/settings/profile`) so it follows the user across devices
+- Manual toggle exposed in Settings → General
 
 ## Mobile Responsiveness
 - Mobile-first design with Tailwind breakpoints

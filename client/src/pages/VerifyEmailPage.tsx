@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { apiRequest } from '../services/api-client';
+import { useAuthStore } from '../stores/auth.store';
 import { Loader2, CheckCircle, XCircle } from 'lucide-react';
 
 export function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const token = searchParams.get('token');
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>(() =>
     token ? 'loading' : 'error',
@@ -47,11 +49,11 @@ export function VerifyEmailPage() {
             <p className="font-semibold">Email verified!</p>
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>{message}</p>
             <button
-              onClick={() => navigate('/login')}
+              onClick={() => navigate(isAuthenticated ? '/' : '/login')}
               className="mt-2 px-5 py-2 rounded-lg text-white text-sm font-medium"
               style={{ backgroundColor: 'var(--primary)' }}
             >
-              Go to login
+              {isAuthenticated ? 'Go to dashboard' : 'Go to login'}
             </button>
           </div>
         )}
