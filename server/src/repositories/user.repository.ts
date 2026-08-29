@@ -43,6 +43,10 @@ export const userRepository = {
     await k('users').where({ id }).update({ email_verified: true, email_verify_token: null });
   },
 
+  async updateVerifyToken(id: string, token: string): Promise<void> {
+    await k('users').where({ id }).update({ email_verify_token: token });
+  },
+
   async update(id: string, data: Partial<Pick<UserRow, 'display_name' | 'avatar_url'>>): Promise<void> {
     await k('users').where({ id }).update(data);
   },

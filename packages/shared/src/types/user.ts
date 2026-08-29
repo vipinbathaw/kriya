@@ -13,6 +13,12 @@ export interface AuthTokens {
   user: User;
 }
 
+export interface RegisterResponse {
+  user: User;
+  accessToken?: string;
+  verificationRequired: boolean;
+}
+
 export interface LoginInput {
   email: string;
   password: string;

@@ -65,7 +65,16 @@ async function generateTokens(user: Pick<UserRow, 'id' | 'email'>) {
 }
 
 export const authService = {
-  async register(email: string, password: string, displayName: string) {
+  async register(
+    email: string,
+    password: string,
+    displayName: string,
+  ): Promise<{
+    user: ReturnType<typeof toUserResponse>;
+    verificationRequired: boolean;
+    accessToken?: string;
+    refreshToken?: string;
+  }> {
     const existing = await userRepository.findByEmail(email);
     if (existing) {
       throw new ConflictError('Email already registered');
@@ -94,13 +103,16 @@ export const authService = {
     });
 
     const user = await userRepository.findById(id)!;
-    const tokens = await generateTokens(user!);
 
+    // Email verification required: do not log the user in yet. They must
+    // click the link in the email before they can use the app.
     if (!autoVerify && verifyToken) {
       await emailService.sendVerificationEmail(email, verifyToken);
+      return { user: toUserResponse(user!), verificationRequired: true };
     }
 
-    return { user: toUserResponse(user!), ...tokens };
+    const tokens = await generateTokens(user!);
+    return { user: toUserResponse(user!), verificationRequired: false, ...tokens };
   },
 
   async login(email: string, password: string) {
@@ -115,11 +127,22 @@ export const authService = {
     }
 
     if (!user.email_verified && config.NODE_ENV !== 'development') {
-      throw new UnauthorizedError('Please verify your email before logging in');
+      throw new AppError(403, 'EMAIL_NOT_VERIFIED', 'Please verify your email before logging in');
     }
 
     const tokens = await generateTokens(user);
     return { user: toUserResponse(user), ...tokens };
+  },
+
+  async resendVerification(email: string): Promise<void> {
+    const user = await userRepository.findByEmail(email);
+    // Fail silently for unknown or already-verified addresses to avoid
+    // leaking which emails have accounts.
+    if (!user || user.email_verified) return;
+
+    const verifyToken = randomUUID();
+    await userRepository.updateVerifyToken(user.id, verifyToken);
+    await emailService.sendVerificationEmail(user.email, verifyToken);
   },
 
   async verifyEmail(token: string) {

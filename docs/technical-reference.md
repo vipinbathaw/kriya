@@ -62,8 +62,9 @@ Compose-level variables (`.env.prod`): `SERVER_PORT` (host port for the API, bou
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/auth/register` | No | Register (rate-limited: 3/hr) |
+| POST | `/api/auth/register` | No | Register (rate-limited: 3/hr). In production with a Resend key configured, returns `verificationRequired: true` and does **not** log the user in |
 | POST | `/api/auth/login` | No | Login (rate-limited: 5/15min) |
+| POST | `/api/auth/resend-verification` | No | Resend the verification email (rate-limited: 3/hr) |
 | POST | `/api/auth/refresh` | Cookie | Refresh access token |
 | POST | `/api/auth/logout` | Cookie | Logout |
 | GET | `/api/auth/me` | JWT | Current user profile |
@@ -77,6 +78,13 @@ Compose-level variables (`.env.prod`): `SERVER_PORT` (host port for the API, bou
 | GET/PUT | `/api/ai/configs` / `/api/ai/configs/:module` | JWT | AI configuration |
 | GET/POST/DELETE | `/api/ai/keys` / `/api/ai/keys/:provider` | JWT | API key management |
 | GET | `/api/ai/providers` | JWT | Available AI providers |
+
+## Email Verification Flow
+
+- When a `RESEND_API_KEY` is configured (production), `POST /api/auth/register` creates the account, sends a verification email, and returns `{ user, verificationRequired: true }` with **no** access token and no session cookie — the user is not logged in.
+- `POST /api/auth/login` returns `403 EMAIL_NOT_VERIFIED` until the account is verified, so unverified accounts cannot use the app.
+- `POST /api/auth/resend-verification` regenerates the token and re-sends the email (it silently succeeds for unknown/already-verified addresses to avoid account enumeration).
+- In development, or when no Resend key is configured, accounts are auto-verified and registration logs the user in immediately (existing behavior).
 
 ## AI Providers
 

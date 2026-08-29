@@ -52,6 +52,7 @@ components:
         user:
           $ref: '#/components/schemas/User'
         accessToken: { type: string }
+        verificationRequired: { type: boolean, description: 'True when the account requires email verification and no session was issued' }
 
     User:
       type: object
@@ -262,6 +263,7 @@ paths:
     post:
       tags: [Auth]
       summary: Register a new user
+      description: When email verification is enabled, no access token is returned and the user must verify their email before logging in.
       requestBody:
         required: true
         content:
@@ -295,6 +297,30 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
         '401': { description: Invalid credentials }
+        '403': { description: 'Email not verified (EMAIL_NOT_VERIFIED)' }
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Resend the email verification link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '200':
+          description: Verification email sent (or no-op if the address is unknown or already verified)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
 
   /auth/refresh:
     post:

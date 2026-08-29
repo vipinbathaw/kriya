@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { User } from '@kriya/shared';
+import type { User, RegisterResponse } from '@kriya/shared';
 import { setAccessToken, setSessionExpiredHandler, apiRequest } from '../services/api-client';
 
 export interface AuthState {
@@ -8,7 +8,7 @@ export interface AuthState {
   isLoading: boolean;
 
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName: string) => Promise<void>;
+  register: (email: string, password: string, displayName: string) => Promise<RegisterResponse>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   setUser: (user: User | null) => void;
@@ -29,12 +29,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   register: async (email: string, password: string, displayName: string) => {
-    const res = await apiRequest<{ user: User; accessToken: string }>('/auth/register', {
+    const res = await apiRequest<RegisterResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify({ email, password, displayName }),
     });
-    setAccessToken(res.accessToken);
-    set({ user: res.user, isAuthenticated: true });
+    if (res.accessToken) {
+      setAccessToken(res.accessToken);
+      set({ user: res.user, isAuthenticated: true });
+    }
+    return res;
   },
 
   logout: async () => {

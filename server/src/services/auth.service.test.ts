@@ -2,14 +2,32 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { authService } from './auth.service.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { refreshTokenRepository } from '../repositories/refresh-token.repository.js';
+import { emailService } from './email.service.js';
 import { ConflictError, UnauthorizedError } from '../middleware/errorHandler.js';
 import { createMockUser } from '../test-utils/factory.js';
 
 vi.mock('../repositories/user.repository.js');
 vi.mock('../repositories/refresh-token.repository.js');
+vi.mock('./email.service.js', () => ({
+  emailService: { sendVerificationEmail: vi.fn() },
+}));
+
+const { mockConfig } = vi.hoisted(() => ({
+  mockConfig: {
+    NODE_ENV: 'test',
+    RESEND_API_KEY: '',
+    APP_URL: 'http://localhost:5173',
+    JWT_SECRET: 'test-secret-test-secret-test-secret-12345',
+    JWT_ACCESS_EXPIRY: '15m',
+    JWT_REFRESH_EXPIRY: '7d',
+  },
+}));
+vi.mock('../config/index.js', () => ({ config: mockConfig }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockConfig.NODE_ENV = 'test';
+  mockConfig.RESEND_API_KEY = '';
 });
 
 describe('authService', () => {
@@ -39,6 +57,23 @@ describe('authService', () => {
         authService.register('existing@example.com', 'password123', 'User'),
       ).rejects.toThrow(ConflictError);
       expect(userRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('does not issue tokens and sends a verification email when verification is required', async () => {
+      mockConfig.NODE_ENV = 'production';
+      mockConfig.RESEND_API_KEY = 're_test_key';
+      const mockUser = createMockUser({ email: 'new@example.com', email_verified: 0 });
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(undefined);
+      vi.mocked(userRepository.create).mockResolvedValue(undefined);
+      vi.mocked(userRepository.findById).mockResolvedValue(mockUser);
+
+      const result = await authService.register('new@example.com', 'password123', 'New User');
+
+      expect(result.verificationRequired).toBe(true);
+      expect(result.accessToken).toBeUndefined();
+      expect(result.refreshToken).toBeUndefined();
+      expect(refreshTokenRepository.create).not.toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).toHaveBeenCalledWith('new@example.com', expect.any(String));
     });
   });
 
@@ -80,6 +115,48 @@ describe('authService', () => {
       await expect(
         authService.login('test@example.com', ''),
       ).rejects.toThrow(UnauthorizedError);
+    });
+
+    it('throws EMAIL_NOT_VERIFIED for an unverified account in production', async () => {
+      mockConfig.NODE_ENV = 'production';
+      const mockUser = createMockUser({ email_verified: 0 });
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+
+      await expect(
+        authService.login('test@example.com', 'password123'),
+      ).rejects.toMatchObject({ code: 'EMAIL_NOT_VERIFIED', statusCode: 403 });
+    });
+  });
+
+  describe('resendVerification', () => {
+    it('regenerates the token and sends an email for an unverified user', async () => {
+      const mockUser = createMockUser({ email_verified: 0 });
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+      vi.mocked(userRepository.updateVerifyToken).mockResolvedValue(undefined);
+
+      await authService.resendVerification('test@example.com');
+
+      expect(userRepository.updateVerifyToken).toHaveBeenCalledWith(mockUser.id, expect.any(String));
+      expect(emailService.sendVerificationEmail).toHaveBeenCalledWith('test@example.com', expect.any(String));
+    });
+
+    it('does nothing for an already verified user', async () => {
+      const mockUser = createMockUser({ email_verified: 1 });
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+
+      await authService.resendVerification('test@example.com');
+
+      expect(userRepository.updateVerifyToken).not.toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('does nothing for an unknown email', async () => {
+      vi.mocked(userRepository.findByEmail).mockResolvedValue(undefined);
+
+      await authService.resendVerification('missing@example.com');
+
+      expect(userRepository.updateVerifyToken).not.toHaveBeenCalled();
+      expect(emailService.sendVerificationEmail).not.toHaveBeenCalled();
     });
   });
 

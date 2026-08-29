@@ -6,14 +6,30 @@ export const authController = {
     try {
       const { email, password, displayName } = req.body;
       const result = await authService.register(email, password, displayName);
-      res.cookie('refreshToken', result.refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: '/api/auth',
+      if (result.refreshToken) {
+        res.cookie('refreshToken', result.refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+          path: '/api/auth',
+        });
+      }
+      res.status(201).json({
+        user: result.user,
+        ...(result.accessToken ? { accessToken: result.accessToken } : {}),
+        verificationRequired: result.verificationRequired,
       });
-      res.status(201).json({ user: result.user, accessToken: result.accessToken });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async resendVerification(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      await authService.resendVerification(email);
+      res.json({ success: true });
     } catch (err) {
       next(err);
     }

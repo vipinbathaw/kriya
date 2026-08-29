@@ -56,7 +56,7 @@ function notifySessionExpired(): void {
   sessionExpiredHandler?.();
 }
 
-const AUTH_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/verify-email']);
+const AUTH_PATHS = new Set(['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/verify-email', '/auth/resend-verification']);
 
 export async function apiRequest<T>(
   path: string,

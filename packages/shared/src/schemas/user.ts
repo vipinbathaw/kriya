@@ -11,5 +11,10 @@ export const registerSchema = z.object({
   displayName: z.string().min(1, 'Display name is required').max(100),
 });
 
+export const resendVerificationSchema = z.object({
+  email: z.string().email('Invalid email address'),
+});
+
 export type LoginSchema = z.infer<typeof loginSchema>;
 export type RegisterSchema = z.infer<typeof registerSchema>;
+export type ResendVerificationSchema = z.infer<typeof resendVerificationSchema>;

@@ -6,11 +6,22 @@ import { LoginPage } from './LoginPage';
 import { useAuthStore } from '../stores/auth.store';
 import { useToastStore } from '../stores/toast.store';
 
+const { ApiClientError } = vi.hoisted(() => {
+  class ApiClientError extends Error {
+    constructor(public status: number, public code: string, message: string, public details?: unknown) {
+      super(message);
+      this.name = 'ApiClientError';
+    }
+  }
+  return { ApiClientError };
+});
+
 vi.mock('../services/api-client', () => ({
   apiRequest: vi.fn(),
   setAccessToken: vi.fn(),
   setSessionExpiredHandler: vi.fn(),
   getAccessToken: vi.fn(() => null),
+  ApiClientError,
 }));
 
 describe('LoginPage', () => {

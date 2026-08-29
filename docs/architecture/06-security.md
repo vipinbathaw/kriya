@@ -50,6 +50,12 @@ Decryption:
 - Refresh validation always checks the hashed token against the `refresh_tokens` table
 - Expired refresh token rows are removed as they are encountered; no sensitive data is retained
 
+### Email Verification
+- When `RESEND_API_KEY` is configured, registration does **not** issue a session — the account is created as unverified and a verification email is sent
+- `login` refuses unverified accounts with `403 EMAIL_NOT_VERIFIED`
+- `POST /api/auth/resend-verification` regenerates the token and re-sends the email; it silently succeeds for unknown/already-verified addresses to prevent account enumeration
+- If no Resend key is configured (dev, or self-host without email), accounts are auto-verified so the app remains usable
+
 ## Request Security
 
 ### Headers

@@ -1,3 +1,3 @@
-import { loginSchema, registerSchema } from '@kriya/shared';
+import { loginSchema, registerSchema, resendVerificationSchema } from '@kriya/shared';
 
-export { loginSchema, registerSchema };
+export { loginSchema, registerSchema, resendVerificationSchema };
