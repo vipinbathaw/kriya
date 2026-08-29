@@ -151,6 +151,24 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod exec server \
   npx tsx node_modules/.bin/knex migrate:latest --knexfile dist/config/database.js
 ```
 
+## Changing Environment Variables
+
+Env vars are passed to the containers at creation time, so after editing `.env.prod` you only need to recreate the affected container — **no volume/data changes, never `down -v`**:
+
+```bash
+# Recreate any containers whose environment changed
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+Notes:
+- `up -d` compares the resolved config with the running containers and recreates only those that changed (e.g. `kriya-server` when you add `RESEND_API_KEY`). `--build` is only needed when the code/image changed.
+- Setting `RESEND_API_KEY` (plus a reachable `APP_URL`) switches on email verification: new registrations must verify before logging in. Existing auto-verified accounts are unaffected.
+- Verify the server picked it up:
+  ```bash
+  docker compose -f docker-compose.prod.yml --env-file .env.prod exec server \
+    sh -c 'echo "resend=${RESEND_API_KEY:+set} app_url=$APP_URL"'
+  ```
+
 ## Rolling Update
 
 For zero-downtime updates, you would need to extend the setup with:

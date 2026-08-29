@@ -39,6 +39,8 @@ services:
       JWT_REFRESH_EXPIRY: ${JWT_REFRESH_EXPIRY:-7d}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       CORS_ORIGIN: ${CORS_ORIGIN}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      APP_URL: ${APP_URL:-}
       PORT: 3000
       HOST: 0.0.0.0
     ports:
