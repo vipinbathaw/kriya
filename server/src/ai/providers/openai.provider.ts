@@ -44,6 +44,7 @@ export class OpenAIProvider implements AIProvider {
       apiKey: params.apiKey,
       model: params.model || this.defaultModel,
       label: 'OpenAI',
+      maxTokens: 4000,
       messages: [
         { role: 'system', content: NUTRITION_PARSE_PROMPT },
         { role: 'user', content: `Food eaten: ${params.rawInput}` },

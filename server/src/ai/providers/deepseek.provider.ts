@@ -9,6 +9,12 @@ const NUTRITION_PARSE_PROMPT = `You are a nutrition expert. Parse the food descr
 
 const BASE_URL = 'https://api.deepseek.com';
 
+// DeepSeek v4 enables thinking mode by default, which spends tokens on a
+// chain-of-thought in `reasoning_content` and can leave `content` empty when
+// the output budget is exhausted. Our tasks are structured extractions, so
+// disable thinking and let the model answer directly.
+const THINKING_DISABLED = { thinking: { type: 'disabled' } };
+
 export class DeepSeekProvider implements AIProvider {
   readonly id = 'deepseek';
   readonly name = 'DeepSeek';
@@ -20,6 +26,7 @@ export class DeepSeekProvider implements AIProvider {
       apiKey: params.apiKey,
       model: params.model || this.defaultModel,
       label: 'DeepSeek',
+      extraBody: THINKING_DISABLED,
       messages: [
         { role: 'system', content: TAG_GENERATION_PROMPT },
         {
@@ -44,6 +51,8 @@ export class DeepSeekProvider implements AIProvider {
       apiKey: params.apiKey,
       model: params.model || this.defaultModel,
       label: 'DeepSeek',
+      extraBody: THINKING_DISABLED,
+      maxTokens: 4000,
       messages: [
         { role: 'system', content: NUTRITION_PARSE_PROMPT },
         { role: 'user', content: `Food eaten: ${params.rawInput}` },

@@ -8,7 +8,9 @@ export interface ChatMessage {
 }
 
 interface ChatCompletionsResponse {
-  choices?: Array<{ message: { content: string | null } }>;
+  choices?: Array<{
+    message: { content: string | null; reasoning_content?: string | null };
+  }>;
   error?: { message: string; type: string };
 }
 
@@ -24,8 +26,18 @@ export async function callChatCompletions(params: {
   label?: string;
   maxTokens?: number;
   temperature?: number;
+  extraBody?: Record<string, unknown>;
 }): Promise<string> {
-  const { baseUrl, apiKey, model, messages, label = 'AI provider', maxTokens = 1000, temperature = 0.3 } = params;
+  const {
+    baseUrl,
+    apiKey,
+    model,
+    messages,
+    label = 'AI provider',
+    maxTokens = 1000,
+    temperature = 0.3,
+    extraBody,
+  } = params;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -38,7 +50,7 @@ export async function callChatCompletions(params: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
+      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens, ...extraBody }),
       signal: controller.signal,
     });
   } catch (err) {
@@ -62,7 +74,11 @@ export async function callChatCompletions(params: {
 
   const content = data.choices?.[0]?.message?.content;
   if (!content) {
-    throw new AppError(502, 'AI_INVALID_RESPONSE', `${label} returned empty response`);
+    const reasoning = data.choices?.[0]?.message?.reasoning_content;
+    const hint = reasoning
+      ? ' (model returned reasoning only; thinking mode should be disabled for structured tasks)'
+      : '';
+    throw new AppError(502, 'AI_INVALID_RESPONSE', `${label} returned empty response${hint}`);
   }
 
   return content.trim();

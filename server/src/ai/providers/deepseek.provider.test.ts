@@ -33,6 +33,7 @@ describe('DeepSeekProvider', () => {
     expect(url).toBe('https://api.deepseek.com/chat/completions');
     const body = JSON.parse(String(init.body));
     expect(body.model).toBe('deepseek-v4-flash');
+    expect(body.thinking).toEqual({ type: 'disabled' });
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sk-deepseek-test');
   });
 
@@ -47,6 +48,20 @@ describe('DeepSeekProvider', () => {
 
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body));
     expect(body.model).toBe('deepseek-v4-flash');
+    expect(body.thinking).toEqual({ type: 'disabled' });
+  });
+
+  it('surfaces a reasoning-only response as an actionable error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: null, reasoning_content: 'some chain of thought' } }],
+      }),
+    }));
+
+    await expect(
+      provider.generateTags({ title: 'Grocery run', module: 'notes', apiKey: 'sk-deepseek-test', model: 'deepseek-v4-flash' }),
+    ).rejects.toThrow(/empty response.*thinking mode should be disabled/);
   });
 
   it('surfaces API errors', async () => {
