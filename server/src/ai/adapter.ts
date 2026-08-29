@@ -3,6 +3,7 @@ import { AppError } from '../middleware/errorHandler.js';
 import { MockAIProvider } from './providers/mock.provider.js';
 import { OpenAIProvider } from './providers/openai.provider.js';
 import { AnthropicProvider } from './providers/anthropic.provider.js';
+import { DeepSeekProvider } from './providers/deepseek.provider.js';
 
 export class AIAdapter {
   private providers = new Map<string, AIProvider>();
@@ -28,5 +29,6 @@ const adapter = new AIAdapter();
 adapter.register(new MockAIProvider());
 adapter.register(new OpenAIProvider());
 adapter.register(new AnthropicProvider());
+adapter.register(new DeepSeekProvider());
 
 export const aiAdapter = adapter;

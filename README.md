@@ -10,7 +10,7 @@ Full-stack TypeScript monorepo (React + Vite + Tailwind, Express + MySQL + Knex)
 - **Finance** — Credit/debit ledger with monthly/daily summaries; AI-powered tagging
 - **Nutrition** — Describe meals in plain text; AI parses 30+ nutrient fields with RDA-based display
 - **Dashboard** — At-a-glance finance balance and nutrition RDA progress
-- **Bring your own AI key** — OpenAI or Anthropic; keys encrypted at rest (AES-256-GCM); mock provider for dev
+- **Bring your own AI key** — OpenAI, Anthropic, or DeepSeek (cheap OpenAI-compatible); keys encrypted at rest (AES-256-GCM); mock provider for dev
 - **Auth** — JWT with refresh token rotation; email verification via Resend
 - **Theme** — Light/dark/system with OKLCH CSS variables
 - **Responsive** — Sidebar on desktop, bottom nav on mobile

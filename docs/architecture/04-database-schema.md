@@ -192,11 +192,12 @@ CREATE TABLE ai_providers (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Seed data (migration 20240101000010)
+-- Seed data (migration 20240101000010, plus 20240101000016 for DeepSeek)
 INSERT INTO ai_providers (id, name, models) VALUES
 ('openai',    'OpenAI',                    '["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"]'),
 ('anthropic', 'Anthropic',                 '["claude-sonnet-4-20250514", "claude-haiku-3-5-20241022"]'),
-('mock',      'Mock AI (Development)',     '["mock"]');
+('mock',      'Mock AI (Development)',     '["mock"]'),
+('deepseek',  'DeepSeek',                  '["deepseek-v4-flash", "deepseek-v4-pro"]');
 ```
 
 ### user_ai_configs

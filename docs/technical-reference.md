@@ -92,6 +92,7 @@ Compose-level variables (`.env.prod`): `SERVER_PORT` (host port for the API, bou
 |----------|--------|-------|
 | OpenAI | `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo` | Requires API key. Default: `gpt-4o-mini` |
 | Anthropic | `claude-sonnet-4-20250514`, `claude-haiku-3-5-20241022` | Requires API key. Default: `claude-haiku-3-5-20241022` |
+| DeepSeek | `deepseek-v4-flash`, `deepseek-v4-pro` | OpenAI-compatible endpoint (`https://api.deepseek.com`). Requires API key. Default: `deepseek-v4-flash` (cheapest) |
 | Mock | `mock` | Built-in, no key needed (development only) |
 
 ## Testing

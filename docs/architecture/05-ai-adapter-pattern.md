@@ -126,11 +126,12 @@ const adapter = new AIAdapter();
 adapter.register(new MockAIProvider());
 adapter.register(new OpenAIProvider());
 adapter.register(new AnthropicProvider());
+adapter.register(new DeepSeekProvider());
 
 export const aiAdapter = adapter;
 ```
 
-All providers are registered at module load. Provider responses are validated with Zod, and every provider request runs with a 30s timeout (aborts via `AbortController`).
+All providers are registered at module load. Provider responses are validated with Zod, and every provider request runs with a 30s timeout (aborts via `AbortController`). OpenAI and DeepSeek both speak the OpenAI-compatible `/chat/completions` protocol and share the `callChatCompletions` client in `src/ai/openai-compatible.ts`, so adding a new OpenAI-compatible provider is a few lines.
 
 ## Usage in Services
 
@@ -200,9 +201,9 @@ The worker polls every 3 seconds for pending entries and updates status to `comp
 ## Adding a New Provider
 
 1. Create `src/ai/providers/newprovider.provider.ts`
-2. Implement the `AIProvider` interface (including `defaultModel`)
+2. Implement the `AIProvider` interface (including `defaultModel`); OpenAI-compatible providers can reuse `callChatCompletions` from `src/ai/openai-compatible.ts`
 3. Register it in `adapter.ts`
-4. Add entry to the `ai_providers` table (seed in `20240101000010_create_ai_providers.ts`)
+4. Add entry to the `ai_providers` table (seed in `20240101000010_create_ai_providers.ts` or a new migration)
 5. No changes needed in any service
 
 ## Prompt Engineering
