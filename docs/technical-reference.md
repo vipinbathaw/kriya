@@ -43,7 +43,6 @@
 |----------|----------|---------|-------------|
 | `NODE_ENV` | No | `development` | Runtime environment |
 | `PORT` | No | `3000` | Server port (inside the container it is always `3000`; the host port is `SERVER_PORT`) |
-| `HOST` | No | `0.0.0.0` | Address the server binds to |
 | `CORS_ORIGIN` | No | `http://localhost:5173` | Allowed CORS origin |
 | `DB_HOST` | No | `localhost` | MySQL host |
 | `DB_PORT` | No | `3306` | MySQL port |
