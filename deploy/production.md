@@ -33,12 +33,11 @@ cp .env.prod.example .env.prod
 |----------|---------|-------------|
 | `JWT_ACCESS_EXPIRY` | `15m` | Access token lifetime |
 | `JWT_REFRESH_EXPIRY` | `7d` | Refresh token lifetime |
-| `DB_PORT` | `3306` | MySQL port (container internal) |
 | `SERVER_PORT` | `3000` | Host port for the API container (bound to `127.0.0.1`) |
 | `CLIENT_PORT` | `8080` | Host port for the client container (bound to `127.0.0.1`; keep off `80` so a host reverse proxy can listen there) |
 | `RESEND_API_KEY` | — | Resend API key for verification emails |
 
-> **Container binding note.** The API always binds to `0.0.0.0` *inside* its container (hardcoded in `docker-compose.prod.yml`) so the client nginx can reach it over the Docker network. Only the HOST-side `SERVER_PORT`/`CLIENT_PORT` ports are bound to `127.0.0.1`. `HOST` is not a `.env.prod` variable.
+> **Container binding note.** The API always binds to `0.0.0.0` *inside* its container (hardcoded in `docker-compose.prod.yml`) so the client nginx can reach it over the Docker network. Only the HOST-side `SERVER_PORT`/`CLIENT_PORT` ports are bound to `127.0.0.1`. Topology-fixed values (`DB_HOST=db`, `DB_PORT=3306`, `NODE_ENV=production`) are also hardcoded in the compose file and are **not** `.env.prod` variables.
 
 > **CORS_ORIGIN / APP_URL matter.** If these do not match the origin the browser actually uses, login will fail CORS checks and email verification links will point at the wrong host. Set both to your real public origin (e.g. `https://kriya.example.com`), not `http://localhost`.
 
@@ -188,7 +187,7 @@ docker compose -f docker-compose.prod.yml logs db
 ```
 
 ### Database connection refused
-Ensure the `DB_HOST` in `.env.prod` is set to `db` (the Docker service name).
+The server connects to the `db` service on the Docker network (`DB_HOST`/`DB_PORT` are fixed to `db:3306` by the compose file, not read from `.env.prod`). If you changed `DB_USER`/`DB_PASSWORD`/`DB_NAME`, remember the DB credentials are only applied when the `mysql_prod_data` volume is first created — recreate the stack with `docker compose ... down -v` (this wipes data) or run `ALTER USER` inside the container to rotate the password.
 
 ### Migrations fail
 ```bash
